@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>ARPAV & Aree Protezione Civile – Castelfranco Veneto</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+  <script src="https://unpkg.com/osmtogeojson@3.0.0-beta.5/osmtogeojson.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: 'Segoe UI', system-ui, Arial, sans-serif; background: #f0f4f8; color: #222; }
+
+    #app { display: flex; height: 100vh; }
+    #map { flex: 1; z-index: 1; min-width: 0; }
+
+    #panel {
+      width: 400px; flex-shrink: 0; background: #fff;
+      display: flex; flex-direction: column;
+      box-shadow: -2px 0 12px rgba(0,0,0,.1);
+      overflow: hidden; z-index: 2; transition: transform .3s ease;
+    }
+    #panel.hidden-desktop { transform: translateX(100%); width: 0; }
+
+    #panel-header {
+      background: #0e8a8a; color: #fff;
+      padding: 11px 14px; flex-shrink: 0;
+      display: flex; align-items: flex-start; gap: 8px;
+    }
+    #panel-header-text { flex: 1; min-width: 0; }
+    #panel-header-text .title { font-size: .92rem; font-weight: 700; line-height: 1.3; }
+    #panel-header-text small { display: block; font-weight: 400; font-size: .74rem; opacity: .85; margin-top: 2px; }
+
+    #refresh-badge {
+      background: rgba(255,255,255,.18);
+      border: 1px solid rgba(255,255,255,.3); border-radius: 20px;
+      padding: 3px 9px; font-size: .7rem; white-space: nowrap;
+      display: none; align-items: center; gap: 5px; flex-shrink: 0; margin-top: 2px;
+    }
+    #refresh-badge.visible { display: flex; }
+    #refresh-badge .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #7fffb0; animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    #btn-close-panel {
+      background: rgba(255,255,255,.2); border: 1.5px solid rgba(255,255,255,.4);
+      border-radius: 50%; width: 28px; height: 28px;
+      color: #fff; font-size: 1rem; cursor: pointer; flex-shrink: 0; margin-top: 1px;
+      display: flex; align-items: center; justify-content: center; transition: background .15s;
+    }
+    #btn-close-panel:hover { background: rgba(255,255,255,.35); }
+
+    #sensor-tabs {
+      display: flex; flex-shrink: 0;
+      border-bottom: 2px solid #e0e8f4; background: #f7f9fc;
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+    }
+    #sensor-tabs::-webkit-scrollbar { display: none; }
+    .s-tab {
+      flex: 1; min-width: 90px; padding: 10px 6px;
+      font-size: .75rem; font-weight: 600; text-align: center;
+      cursor: pointer; color: #6a8099; border-bottom: 3px solid transparent;
+      border: none; background: none; white-space: nowrap; transition: all .15s;
+    }
+    .s-tab:hover { color: #0e8a8a; background: #edf3fb; }
+    .s-tab.active { color: #0e8a8a; border-bottom: 3px solid #0e8a8a; background: #fff; }
+
+    #panel-body { flex: 1; overflow-y: auto; padding: 12px; -webkit-overflow-scrolling: touch; }
+
+    .placeholder {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; height: 100%; color: #8a9bb0;
+      text-align: center; padding: 30px;
+    }
+    .placeholder svg { margin-bottom: 14px; opacity: .4; }
+    .placeholder p { font-size: .86rem; line-height: 1.55; }
+
+    .stat-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; margin-bottom: 12px; }
+    .stat-card { background: #f0f6ff; border-radius: 8px; padding: 8px 6px; text-align: center; border: 1px solid #cde0f7; }
+    .stat-card .val { font-size: 1rem; font-weight: 700; color: #0e8a8a; }
+    .stat-card .lbl { font-size: .62rem; color: #6a8099; margin-top: 2px; }
+
+    .soglie-legend {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;
+      padding: 7px 10px; background: #fafbfd; border: 1px solid #e8eef5; border-radius: 7px;
+    }
+    .soglia-item { display: flex; align-items: center; gap: 5px; font-size: .72rem; color: #444; }
+    .soglia-line { width: 20px; height: 0; border-top: 2.5px dashed currentColor; flex-shrink: 0; }
+
+    .chart-wrap { position: relative; height: 200px; margin-bottom: 12px; }
+    .data-table { width: 100%; border-collapse: collapse; font-size: .76rem; }
+    .data-table th { background: #e8f0fa; padding: 6px 8px; text-align: left; font-weight: 600; color: #0e8a8a; border-bottom: 2px solid #c5d6ee; position: sticky; top: 0; z-index: 1; }
+    .data-table td { padding: 5px 8px; border-bottom: 1px solid #eef1f5; }
+    .data-table tr:hover td { background: #f5f8ff; }
+    .data-table tr.latest td { background: #eaf6ff; font-weight: 600; }
+    .data-table tr.over-s3 td { background: #fff0f0; color: #c0392b; font-weight: 600; }
+    .data-table tr.over-s2 td { background: #fff7ee; color: #d35400; }
+    .data-table tr.over-s1 td { background: #fffde7; color: #856404; }
+
+    .loading { display: flex; align-items: center; justify-content: center; padding: 40px; color: #0e8a8a; font-size: .9rem; gap: 10px; }
+    .spinner { width: 22px; height: 22px; border: 3px solid #b2dfdf; border-top-color: #0e8a8a; border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-box { background: #fff3f3; border: 1px solid #f5c6cb; border-radius: 8px; padding: 12px; font-size: .82rem; color: #721c24; line-height: 1.5; }
+
+    .stn-marker {
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      border: 2px solid rgba(255,255,255,.9); box-shadow: 0 1px 6px rgba(0,0,0,.45);
+      cursor: pointer; background: #0e8a8a;
+    }
+    .stn-marker.active { border: 3px solid #fff; }
+
+    /* ── Layer switcher unificato ── */
+    .layer-control {
+      background: white; padding: 10px 12px; border-radius: 8px;
+      font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.15); min-width: 170px;
+    }
+    .layer-control-header { font-weight: 700; font-size: 0.85rem; margin-bottom: 6px; color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+    .layer-control-section-title {
+      font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+      color: #94a3b8; letter-spacing: .05em;
+      margin: 8px 0 4px; padding-top: 6px;
+      border-top: 1px solid #e2e8f0;
+    }
+    .layer-control-section-title.first { border-top: none; margin-top: 2px; padding-top: 0; }
+    .layer-control-items { display: flex; flex-direction: column; gap: 6px; }
+    .layer-control-item { display: flex; align-items: center; gap: 7px; font-size: 0.75rem; color: #334155; font-weight: 500; cursor: pointer; }
+    .layer-swatch { width: 20px; height: 4px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+    .layer-swatch.area { height: 14px; border-radius: 3px; border: 1.5px solid; }
+    #btn-load-cpa {
+      background: #1e293b; color: white; border: none; padding: 6px; width: 100%;
+      border-radius: 5px; cursor: pointer; font-size: 0.75rem; transition: background 0.2s;
+      font-weight: 600; margin-top: 8px; display: block;
+    }
+    #btn-load-cpa:hover { background: #0f172a; }
+
+    #fab-open {
+      display: none; position: fixed; bottom: 22px; right: 18px; z-index: 500;
+      background: #0e8a8a; color: #fff; width: 52px; height: 52px;
+      border-radius: 50%; border: none; box-shadow: 0 4px 14px rgba(0,0,0,.35);
+      cursor: pointer; align-items: center; justify-content: center;
+    }
+
+    @media (max-width: 700px) {
+      #app { flex-direction: column; height: 100vh; position: relative; }
+      #map { height: 100%; width: 100%; }
+      #panel {
+        position: fixed; bottom: 0; left: 0; right: 0;
+        width: 100%; height: 75vh; border-radius: 18px 18px 0 0;
+        box-shadow: 0 -4px 20px rgba(0,0,0,.2); transform: translateY(100%);
+      }
+      #panel.open { transform: translateY(0) !important; width: 100% !important; }
+      #panel.hidden-desktop { transform: translateY(100%); width: 100%; }
+      #panel-header { padding-top: 14px; position: relative; }
+      #panel-header::before {
+        content: ''; display: block; position: absolute;
+        top: 6px; left: 50%; transform: translateX(-50%);
+        width: 36px; height: 4px; background: rgba(255,255,255,.4); border-radius: 2px;
+      }
+      #fab-open { display: flex; }
+      #fab-open.hidden { display: none; }
+      .stat-card .val { font-size: .92rem; }
+      .chart-wrap { height: 175px; }
+      .data-table { font-size: .72rem; }
+    }
+	
+	/* ── Modal info ── */
+	#info-modal {
+	  display: none; position: fixed; inset: 0; z-index: 9999;
+	  background: rgba(0,0,0,.45); align-items: center; justify-content: center;
+	}
+	#info-modal.open { display: flex; }
+	#info-box {
+	  background: #fff; border-radius: 12px; padding: 22px 24px;
+	  max-width: 420px; width: 90%; max-height: 85vh; overflow-y: auto;
+	  box-shadow: 0 8px 32px rgba(0,0,0,.25); position: relative;
+	  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+	}
+	#info-box h2 { font-size: 1rem; color: #0e8a8a; margin-bottom: 14px; }
+	#info-box h3 { font-size: .82rem; font-weight: 700; color: #1e293b; margin: 12px 0 4px; display: flex; align-items: center; gap: 6px; }
+	#info-box p  { font-size: .78rem; color: #444; line-height: 1.6; margin-bottom: 6px; }
+	#info-box a  { color: #0e8a8a; font-weight: 600; }
+	.info-area-badge {
+	  display: inline-block; border-radius: 4px; padding: 2px 7px;
+	  font-size: .7rem; font-weight: 700; color: #fff; margin-right: 4px;
+	}
+	#btn-close-info {
+	  position: absolute; top: 12px; right: 14px;
+	  background: #f1f5f9; border: none; border-radius: 50%;
+	  width: 28px; height: 28px; font-size: 1rem; cursor: pointer;
+	  display: flex; align-items: center; justify-content: center; color: #475569;
+	}
+	#btn-close-info:hover { background: #e2e8f0; }
+
+	/* ── Pulsante info sulla mappa ── */
+	#btn-info-map {
+	  position: fixed; bottom: 22px; left: 18px; z-index: 500;
+	  background: #fff; color: #0e8a8a; width: 38px; height: 38px;
+	  border-radius: 50%; border: 2px solid #0e8a8a;
+	  box-shadow: 0 2px 8px rgba(0,0,0,.2);
+	  cursor: pointer; font-size: 1rem; font-weight: 700;
+	  display: flex; align-items: center; justify-content: center;
+	}
+	#btn-info-map:hover { background: #0e8a8a; color: #fff; }
+
+	
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <div id="map"></div>
+
+  <div id="panel" class="hidden-desktop">
+    <div id="panel-header">
+      <div id="panel-header-text">
+        <div class="title" id="panel-title">Dati stazione</div>
+        <small id="panel-subtitle">Seleziona una stazione dalla mappa</small>
+      </div>
+      <div id="refresh-badge">
+        <div class="dot"></div>
+        <span style="opacity:.8">Prossimo aggiornamento tra:</span>
+        <span id="countdown-label">--:--</span>
+      </div>
+      <button id="btn-close-panel" onclick="closePanel()" title="Chiudi pannello">&#x2715;</button>
+    </div>
+    <div id="sensor-tabs" style="display:none"></div>
+    <div id="panel-body">
+      <div class="placeholder">
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+          <path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-4"/>
+        </svg>
+        <p>Tocca un marker per caricare<br>i dati ARPAV delle ultime 48 ore</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<button id="fab-open" class="hidden" onclick="openPanel()" title="Apri dati">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+    <path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-4"/>
+  </svg>
+</button>
+
+<script>
+// ── COSTANTI ──────────────────────────────────────────────────────────────────
+const ARPA_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="13" height="13"><rect x="3" y="3" width="1.8" height="12.4" rx=".9" fill="white"/><rect x="3" y="14.2" width="10.5" height="1.8" rx=".9" fill="white"/><path d="M4 3.5 Q9.5 0.5 14 5.5" stroke="white" stroke-width="1.8" fill="none" stroke-linecap="round"/><line x1="6.5" y1="4.6" x2="6.5" y2="14.2" stroke="white" stroke-width="1.1" stroke-linecap="round"/><line x1="9.2" y1="3.4" x2="9.2" y2="14.2" stroke="white" stroke-width="1.1" stroke-linecap="round"/><line x1="12" y1="5" x2="12" y2="14.2" stroke="white" stroke-width="1.1" stroke-linecap="round"/></svg>';
+
+const STATIONS = [
+  { id: 292, osmNodeId: '12984401383', name: 'Muson dei Sassi', subtitle: 'Castelfranco Veneto', lat: 45.66983651, lon: 11.92027581, soglie: { s1: 1.8, s2: 2.5, s3: 2.9 } },
+  { id: 653, osmNodeId: '12984421539', name: 'Avenale',         subtitle: 'Castelfranco Veneto', lat: 45.6540,      lon: 11.9850,       soglie: { s1: 1.5, s2: 1.8, s3: 2.1 } }
+];
+const SOGLIA_CFG = [
+  { key: 's1', label: 'Guardia 1', color: '#e0b800' },
+  { key: 's2', label: 'Guardia 2', color: '#e07820' },
+  { key: 's3', label: 'Guardia 3', color: '#d0282a' }
+];
+const TYPE_COLOR = {
+  LIVIDRO: { border: '#0e8a8a', fill: 'rgba(14,138,138,.1)' },
+  PRECCUM: { border: '#2196a6', fill: 'rgba(33,150,166,.1)' },
+  PORTATA: { border: '#5a3fa0', fill: 'rgba(90,63,160,.1)' },
+  DEFAULT: { border: '#0e8a8a', fill: 'rgba(14,138,138,.1)' }
+};
+const TAB_LABELS = { LIVIDRO: 'Livello idro.', PRECCUM: 'Precipitazioni', PORTATA: 'Portata' };
+
+const CV_BBOX = { s: 45.6230, w: 11.8730, n: 45.7020, e: 12.0020 };
+
+const PROXY    = 'https://corsproxy.io/?';
+const XML_URL  = 'https://www.arpa.veneto.it/api/risorse/data-meteo/xml/Ultime48ore.xml';
+const CSV_BASE = 'https://meteo.arpa.veneto.it/meteo/dati_meteo/xml/';
+const OSM_API  = 'https://api.openstreetmap.org/api/0.6/node/';
+
+let activeChart = null, currentId = null, currentSensors = [];
+let currentStnRef = null, nextRefresh = null;
+const markerRefs = {};
+const isMobile = () => window.innerWidth <= 700;
+
+// ── PANNELLO UI ───────────────────────────────────────────────────────────────
+function showBadge(show) { document.getElementById('refresh-badge').classList.toggle('visible', show); }
+
+function openPanel() {
+  const p = document.getElementById('panel');
+  p.classList.remove('hidden-desktop');
+  p.classList.add('open');
+  document.getElementById('fab-open').classList.add('hidden');
+  if (currentId !== null) showBadge(true);
+  setTimeout(() => map.invalidateSize(), 350);
+}
+
+function closePanel() {
+  const p = document.getElementById('panel');
+  showBadge(false);
+  if (isMobile()) {
+    p.classList.remove('open');
+    if (currentId !== null) document.getElementById('fab-open').classList.remove('hidden');
+  } else {
+    p.classList.add('hidden-desktop');
+    setTimeout(() => map.invalidateSize(), 350);
+  }
+  if (activeChart) { activeChart.destroy(); activeChart = null; }
+  currentId = null; currentStnRef = null;
+  STATIONS.forEach(s => markerRefs[s.id]?.setIcon(buildIcon(s, false)));
+}
+
+// ── MAPPA ─────────────────────────────────────────────────────────────────────
+const map = L.map('map', { center: [45.6640, 11.9580], zoom: 13 });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap', maxZoom: 19
+}).addTo(map);
+
+// ── LAYER GROUPS ──────────────────────────────────────────────────────────────
+const waterwayLayerGroup = L.layerGroup().addTo(map);
+let cpaLayers = {};
+let activeFilters = ['waiting', 'camp', 'staging'];
+
+// ── WATERWAY ──────────────────────────────────────────────────────────────────
+const WATERWAY_STYLES = {
+  river:   { color: '#1a6bb5', weight: 3.5, opacity: 0.85 },
+  stream:  { color: '#3a8fcc', weight: 2,   opacity: 0.75 },
+  canal:   { color: '#0077a8', weight: 2.5, opacity: 0.80 },
+  drain:   { color: '#5ba8c4', weight: 1.5, opacity: 0.65 },
+  ditch:   { color: '#7bbfd4', weight: 1.2, opacity: 0.60 },
+  default: { color: '#4aa3c8', weight: 1.5, opacity: 0.65 }
+};
+
+function waterwayStyle(feature) {
+  const type = feature.properties?.tags?.waterway || feature.properties?.waterway || 'default';
+  return WATERWAY_STYLES[type] || WATERWAY_STYLES.default;
+}
+
+async function loadWaterways() {
+  const { s, w, n, e } = CV_BBOX;
+  const query = `
+    [out:json][timeout:25];
+    (
+      way["waterway"~"^(river|stream|canal|drain|ditch)$"](${s},${w},${n},${e});
+      relation["waterway"~"^(river|stream|canal|drain|ditch)$"](${s},${w},${n},${e});
+    );
+    out body; >; out skel qt;
+  `;
+  try {
+    const res   = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: query });
+    const data  = await res.json();
+    const geojson = osmtogeojson(data);
+    waterwayLayerGroup.clearLayers();
+    L.geoJSON(geojson, {
+      filter: f => { const gt = f.geometry?.type; return gt !== 'Point' && gt !== 'MultiPoint'; },
+      style: waterwayStyle,
+      onEachFeature: (feature, layer) => {
+        const tags = feature.properties?.tags || feature.properties || {};
+        const name = tags.name || tags.ref || null;
+        const type = tags.waterway || '';
+        const labelMap = { river: 'Fiume', stream: 'Torrente/Rio', canal: 'Canale', drain: 'Scolo', ditch: 'Fosso' };
+        layer.bindTooltip(
+          `<b>${name || labelMap[type] || "Corso d'acqua"}</b>` +
+          (name ? `<br><span style="color:#555;font-size:.8em">${labelMap[type] || type}</span>` : ''),
+          { sticky: true }
+        );
+        waterwayLayerGroup.addLayer(layer);
+      }
+    });
+  } catch (e) { console.error("Errore corsi d'acqua:", e); }
+}
+
+// ── AREE PROTEZIONE CIVILE ────────────────────────────────────────────────────
+const CPA_STYLES = {
+  waiting: { color: '#166534', fillColor: '#22c55e', label: 'Attesa' },
+  camp:    { color: '#991b1b', fillColor: '#ef4444', label: 'Ricovero' },
+  staging: { color: '#a16207', fillColor: '#eab308', label: 'Ammassamento' }
+};
+
+function getCPAType(feature) {
+  const tags = feature.properties?.tags || feature.properties || {};
+  if (tags['emergency:waiting_area'] === 'yes')    return 'waiting';
+  if (tags['emergency:camp_area']    === 'yes')    return 'camp';
+  if (tags['emergency:staging_area'] === 'rescue') return 'staging';
+  return 'waiting';
+}
+
+function centroid(feature) {
+  const coords = feature.geometry?.coordinates;
+  const type   = feature.geometry?.type;
+  let pts = [];
+  if (type === 'Polygon')           pts = coords[0];
+  else if (type === 'MultiPolygon') pts = coords[0][0];
+  else if (type === 'LineString')   pts = coords;
+  if (!pts.length) return '0,0';
+  const lat = pts.reduce((s, c) => s + c[1], 0) / pts.length;
+  const lon = pts.reduce((s, c) => s + c[0], 0) / pts.length;
+  return `${lat.toFixed(6)},${lon.toFixed(6)}`;
+}
+
+async function loadCPA() {
+  const btn = document.getElementById('btn-load-cpa');
+  if (btn) btn.textContent = 'Caricamento...';
+  const { s, w, n, e } = CV_BBOX;
+  const query = `
+    [out:json][timeout:15];
+    (
+      way["emergency:waiting_area"="yes"](${s},${w},${n},${e});
+      relation["emergency:waiting_area"="yes"](${s},${w},${n},${e});
+      way["emergency:camp_area"="yes"](${s},${w},${n},${e});
+      relation["emergency:camp_area"="yes"](${s},${w},${n},${e});
+      way["emergency:staging_area"="rescue"](${s},${w},${n},${e});
+      relation["emergency:staging_area"="rescue"](${s},${w},${n},${e});
+    );
+    out body; >; out skel qt;
+  `;
+  try {
+    const res   = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: query });
+    const data  = await res.json();
+    const geojson = osmtogeojson(data);
+
+    Object.values(cpaLayers).forEach(l => map.removeLayer(l));
+    cpaLayers = {};
+
+    L.geoJSON(geojson, {
+      style: feature => {
+        const gt = feature.geometry?.type;
+        if (gt === 'Point' || gt === 'MultiPoint') return {};
+        const style = CPA_STYLES[getCPAType(feature)] || CPA_STYLES.waiting;
+        return { color: style.color, fillColor: style.fillColor, weight: 2, fillOpacity: 0.4 };
+      },
+      onEachFeature: (feature, layer) => {
+        const gt = feature.geometry?.type;
+        if (gt === 'Point' || gt === 'MultiPoint') return;
+
+        const tags  = feature.properties?.tags || feature.properties || {};
+        const type  = getCPAType(feature);
+        const style = CPA_STYLES[type] || CPA_STYLES.waiting;
+        const name  = tags.name || tags.ref || null;
+
+        layer.bindPopup(`<div style="font-family:sans-serif;font-size:0.85rem;">
+          <strong style="color:${style.color}">${style.label}</strong>
+          ${name ? `<br><span style="font-size:0.75rem;color:#555">${name}</span>` : ''}
+          <br><br>
+          <a href="https://www.google.com/maps/dir/?api=1&destination=${centroid(feature)}"
+             target="_blank"
+             style="display:inline-block;background:#0e8a8a;color:#fff;padding:5px 12px;
+                    border-radius:5px;text-decoration:none;font-size:0.78rem;font-weight:600;">
+            &#9650; Naviga
+          </a>
+        </div>`);
+
+        if (!cpaLayers[type]) cpaLayers[type] = L.layerGroup();
+        cpaLayers[type].addLayer(layer);
+      }
+    });
+
+    activeFilters.forEach(f => { if (cpaLayers[f]) cpaLayers[f].addTo(map); });
+
+  } catch (e) {
+    console.error('Errore Overpass CPA:', e);
+  } finally {
+    if (btn) btn.textContent = 'Aggiorna';
+  }
+}
+
+function toggleCPA(type) {
+  const cb = document.getElementById(`filter-${type}`);
+  if (cb.checked) {
+    if (!activeFilters.includes(type)) activeFilters.push(type);
+    if (cpaLayers[type]) cpaLayers[type].addTo(map);
+  } else {
+    activeFilters = activeFilters.filter(t => t !== type);
+    if (cpaLayers[type]) map.removeLayer(cpaLayers[type]);
+  }
+}
+
+function toggleWaterways(visible) {
+  if (visible) map.addLayer(waterwayLayerGroup);
+  else map.removeLayer(waterwayLayerGroup);
+}
+
+// ── LAYER SWITCHER UNIFICATO (top-left) ───────────────────────────────────────
+const LayerSwitcher = L.Control.extend({
+  options: { position: 'topleft' },
+  onAdd: function() {
+    const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control layer-control');
+    div.innerHTML = `
+      <div class="layer-control-header">Layer</div>
+
+      <div class="layer-control-section-title first">Idrografia</div>
+      <div class="layer-control-items">
+        <label class="layer-control-item">
+          <input type="checkbox" id="toggle-waterways" checked onchange="toggleWaterways(this.checked)">
+          <span class="layer-swatch" style="background:#1a6bb5"></span>
+          Corsi d'acqua
+        </label>
+      </div>
+
+      <div class="layer-control-section-title">Aree Protezione Civile</div>
+      <div class="layer-control-items">
+        ${Object.entries(CPA_STYLES).map(([key, style]) => `
+          <label class="layer-control-item">
+            <input type="checkbox" id="filter-${key}" checked onchange="toggleCPA('${key}')">
+            <span class="layer-swatch area" style="background:${style.fillColor}55;border-color:${style.color}"></span>
+            ${style.label}
+          </label>
+        `).join('')}
+      </div>
+      <button id="btn-load-cpa" onclick="loadCPA()">Aggiorna</button>
+    `;
+    L.DomEvent.disableClickPropagation(div);
+    return div;
+  }
+});
+map.addControl(new LayerSwitcher());
+
+// ── MARKER STAZIONI ───────────────────────────────────────────────────────────
+async function loadOSMNode(stn) {
+  try {
+    let text;
+    try {
+      const r = await fetch(OSM_API + stn.osmNodeId + '.json', { signal: AbortSignal.timeout(5000) });
+      if (r.ok) text = await r.text();
+    } catch {}
+    if (!text) {
+      const r2 = await fetch(PROXY + encodeURIComponent(OSM_API + stn.osmNodeId + '.json'), { signal: AbortSignal.timeout(8000) });
+      if (r2.ok) text = await r2.text();
+    }
+    if (text) {
+      const el = JSON.parse(text)?.elements?.[0];
+      if (el?.lat && el?.lon) { stn.lat = el.lat; stn.lon = el.lon; }
+      if (el?.tags?.name) stn.osmName = el.tags.name;
+    }
+  } catch (_) {}
+}
+
+function buildIcon(stn, active) {
+  const size = active ? 28 : 24, anchor = size / 2;
+  return L.divIcon({
+    html: `<div class="stn-marker${active ? ' active' : ''}" style="width:${size}px;height:${size}px;">${ARPA_SVG}</div>`,
+    className: '', iconSize: [size, size], iconAnchor: [anchor, anchor], popupAnchor: [0, -anchor - 4]
+  });
+}
+
+function setActiveMarker(id) {
+  STATIONS.forEach(s => markerRefs[s.id]?.setIcon(buildIcon(s, s.id === id)));
+}
+
+async function initMarkers() {
+  fetch('https://nominatim.openstreetmap.org/lookup?osm_type=R&osm_ids=45549&format=json&polygon_geojson=1')
+    .then(r => r.json()).then(arr => {
+      if (arr?.[0]?.geojson)
+        L.geoJSON(arr[0].geojson, { style: { color: '#0e8a8a', weight: 2, fillOpacity: .05, fillColor: '#0e8a8a', dashArray: '6 4' } }).addTo(map);
+    }).catch(() => {});
+
+  loadWaterways();
+  loadCPA();
+
+  await Promise.all(STATIONS.map(loadOSMNode));
+  STATIONS.forEach(stn => {
+    const m = L.marker([stn.lat, stn.lon], { icon: buildIcon(stn, false) }).addTo(map)
+      .bindTooltip(
+        `<b>${stn.name}</b><br>${stn.subtitle}` +
+        (stn.osmName ? `<br><i style="font-size:.8em;color:#555">${stn.osmName}</i>` : '') +
+        `<br><span style="font-size:.8em;color:#666">ARPAV #${stn.id}</span>`,
+        { direction: 'top', offset: [0, -14] }
+      );
+    m.on('click', () => { loadStation(stn); openPanel(); });
+    markerRefs[stn.id] = m;
+  });
+}
+
+// ── ARPAV: FETCH & PARSING ────────────────────────────────────────────────────
+async function fetchText(url) {
+  try {
+    const r = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    if (r.ok) return r.text();
+  } catch {}
+  const r2 = await fetch(PROXY + encodeURIComponent(url), { signal: AbortSignal.timeout(9000) });
+  if (!r2.ok) throw new Error('HTTP ' + r2.status);
+  return r2.text();
+}
+
+async function loadStation(stn, silent = false) {
+  currentId = stn.id; currentStnRef = stn;
+  setActiveMarker(stn.id);
+  document.getElementById('panel-title').textContent = stn.name;
+  document.getElementById('panel-subtitle').textContent = `${stn.subtitle} — #${stn.id}`;
+  showBadge(true);
+  if (!silent) {
+    document.getElementById('sensor-tabs').style.display = 'none';
+    document.getElementById('panel-body').innerHTML = '<div class="loading"><div class="spinner"></div>Caricamento dati ARPAV...</div>';
+    if (activeChart) { activeChart.destroy(); activeChart = null; }
+  }
+  try {
+    const xml = await fetchText(XML_URL);
+    const sensors = parseXML(xml, stn.id);
+    if (sensors?.length > 0) { currentSensors = sensors; renderTabs(stn, sensors); return; }
+  } catch (_) {}
+  try {
+    const csv = await fetchText(`${CSV_BASE}${String(stn.id).padStart(4, '0')}.csv`);
+    const rows = parseCSV(csv);
+    if (rows?.length > 0) { currentSensors = [{ type: 'LIVIDRO', paramnm: 'Livello idrometrico', unitnm: 'm', rows }]; renderTabs(stn, currentSensors); return; }
+  } catch (e) { showError(e.message); return; }
+  showError('Nessun dato disponibile per la stazione #' + stn.id);
+}
+
+function parseXML(xmlText, stationId) {
+  const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+  let staz = null;
+  for (const s of doc.querySelectorAll('STAZIONE')) {
+    const el = s.querySelector('IDSTAZ') || s.querySelector('CODSTAZ');
+    if (el?.textContent?.trim() == stationId) { staz = s; break; }
+  }
+  if (!staz) return null;
+  const sensors = [];
+  for (const sensore of staz.querySelectorAll('SENSORE')) {
+    const paramnm = sensore.querySelector('PARAMNM')?.textContent?.trim() || '';
+    const type    = (sensore.querySelector('TYPE')?.textContent?.trim() || '').toUpperCase();
+    const unitnm  = sensore.querySelector('UNITNM')?.textContent?.trim() || '';
+    const g1 = parseFloat(sensore.querySelector('GUARDIA1')?.textContent);
+    const g2 = parseFloat(sensore.querySelector('GUARDIA2')?.textContent);
+    const g3 = parseFloat(sensore.querySelector('GUARDIA3')?.textContent);
+    const rows = [];
+    for (const dati of sensore.querySelectorAll('DATI')) {
+      const ist = dati.getAttribute('ISTANTE') || '';
+      const vm  = parseFloat(dati.querySelector('VM')?.textContent?.trim());
+      if (ist && !isNaN(vm)) rows.push({ dt: ist, label: fmtIstante(ist), val: vm });
+    }
+    rows.sort((a, b) => a.dt > b.dt ? -1 : a.dt < b.dt ? 1 : 0);
+    if (rows.length > 0) sensors.push({ type, paramnm, unitnm, rows, soglie: !isNaN(g1) ? { s1: g1, s2: g2, s3: g3 } : null });
+  }
+  return sensors;
+}
+
+function fmtIstante(s) {
+  if (s.length < 12) return s;
+  return `${s.slice(6,8)}/${s.slice(4,6)} ${s.slice(8,10)}:${s.slice(10,12)}`;
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n').filter(l => l.trim());
+  if (lines.length < 2) return null;
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const p = lines[i].split(';');
+    if (p.length < 4) continue;
+    const dt  = p[2].trim().replace(/^"|"$/g, '');
+    const val = parseFloat(p[3]);
+    if (!isNaN(val)) rows.push({ dt, label: dt, val });
+  }
+  rows.sort((a, b) => a.dt > b.dt ? -1 : a.dt < b.dt ? 1 : 0);
+  return rows;
+}
+
+// ── RENDERING TABS & SENSORI ──────────────────────────────────────────────────
+function renderTabs(stn, sensors) {
+  const tabsEl = document.getElementById('sensor-tabs');
+  tabsEl.style.display = sensors.length > 1 ? 'flex' : 'none';
+  tabsEl.innerHTML = sensors.length > 1
+    ? sensors.map((s, i) => `<button class="s-tab${i === 0 ? ' active' : ''}" onclick="switchTab(${i})">${TAB_LABELS[s.type] || s.paramnm}</button>`).join('')
+    : '';
+  switchTab(0);
+}
+
+function switchTab(idx) {
+  document.querySelectorAll('.s-tab').forEach((t, i) => t.classList.toggle('active', i === idx));
+  if (activeChart) { activeChart.destroy(); activeChart = null; }
+  renderSensor(currentStnRef, currentSensors[idx]);
+}
+
+function renderSensor(stn, sensor) {
+  const isLivello = sensor.type === 'LIVIDRO';
+  const soglie    = isLivello ? (sensor.soglie || stn.soglie) : null;
+  const rows = sensor.rows, vals = rows.map(r => r.val), unit = sensor.unitnm;
+  const last = vals[0];
+  const minV = Math.min(...vals).toFixed(3);
+  const maxV = Math.max(...vals).toFixed(3);
+  const avg  = (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(3);
+
+  let legendHtml = '';
+  if (isLivello && soglie) {
+    legendHtml = '<div class="soglie-legend">' +
+      SOGLIA_CFG.map(c =>
+        `<div class="soglia-item"><div class="soglia-line" style="color:${c.color}"></div><span><b>${c.label}</b>: ${soglie[c.key].toFixed(2)} ${unit}</span></div>`
+      ).join('') + '</div>';
+  }
+
+  const chartRows = [...rows].reverse();
+  const labels   = chartRows.map(r => r.label);
+  const dataVals = chartRows.map(r => r.val);
+  const n   = labels.length;
+  const clr = TYPE_COLOR[sensor.type] || TYPE_COLOR.DEFAULT;
+  const yMin = Math.max(0, Math.min(...dataVals) * 0.95);
+  const yMax = isLivello && soglie
+    ? Math.max(Math.max(...dataVals), Math.max(soglie.s1, soglie.s2, soglie.s3)) * 1.10
+    : (Math.max(...dataVals) * 1.15) || 1;
+
+  const datasets = [{
+    label: `${sensor.paramnm} (${unit})`, data: dataVals,
+    borderColor: clr.border, backgroundColor: clr.fill,
+    borderWidth: 1.8, pointRadius: n > 100 ? 0 : 2.5, pointHoverRadius: 4,
+    tension: 0.25, fill: true, order: 10
+  }];
+  if (isLivello && soglie) {
+    SOGLIA_CFG.forEach(c => datasets.push({
+      label: `${c.label} – ${soglie[c.key].toFixed(2)} ${unit}`,
+      data: Array(n).fill(soglie[c.key]),
+      borderColor: c.color, backgroundColor: 'transparent',
+      borderWidth: 1.8, borderDash: [6, 4],
+      pointRadius: 0, pointHoverRadius: 0,
+      fill: false, tension: 0, order: 1
+    }));
+  }
+
+  document.getElementById('panel-body').innerHTML =
+    `<div class="stat-row">
+      <div class="stat-card"><div class="val">${last?.toFixed(3) ?? '–'}</div><div class="lbl">Ultimo (${unit})</div></div>
+      <div class="stat-card"><div class="val">${minV}</div><div class="lbl">Min (${unit})</div></div>
+      <div class="stat-card"><div class="val">${maxV}</div><div class="lbl">Max (${unit})</div></div>
+      <div class="stat-card"><div class="val">${avg}</div><div class="lbl">Media (${unit})</div></div>
+    </div>
+    ${legendHtml}
+    <div class="chart-wrap"><canvas id="sensorChart"></canvas></div>
+    <table class="data-table">
+      <thead><tr><th>Data / Ora</th><th>${sensor.paramnm} (${unit})</th></tr></thead>
+      <tbody id="tbl-body"></tbody>
+    </table>`;
+
+  const tbody = document.getElementById('tbl-body');
+  rows.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    if (i === 0) tr.classList.add('latest');
+    else if (isLivello && soglie) {
+      if      (r.val >= soglie.s3) tr.classList.add('over-s3');
+      else if (r.val >= soglie.s2) tr.classList.add('over-s2');
+      else if (r.val >= soglie.s1) tr.classList.add('over-s1');
+    }
+    tr.innerHTML = `<td>${r.label}</td><td>${r.val.toFixed(3)}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  if (activeChart) activeChart.destroy();
+  const ctx = document.getElementById('sensorChart').getContext('2d');
+  activeChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          display: isLivello && !!soglie, position: 'bottom',
+          labels: {
+            filter: item => item.datasetIndex > 0,
+            boxWidth: 20, boxHeight: 0, padding: 6, font: { size: 10 },
+            generateLabels: chart => chart.data.datasets
+              .map((ds, i) => ({ text: ds.label, strokeStyle: ds.borderColor, fillStyle: 'transparent', lineWidth: 2, lineDash: [5, 3], datasetIndex: i, hidden: false }))
+              .filter((_, i) => i > 0)
+          }
+        },
+        tooltip: { callbacks: { label: item => item.datasetIndex === 0 ? `${sensor.paramnm}: ${item.raw.toFixed(3)} ${unit}` : item.dataset.label } },
+        zoom: { zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }, pan: { enabled: true, mode: 'x' } }
+      },
+      scales: {
+        x: { ticks: { maxTicksLimit: 6, maxRotation: 0, font: { size: 9 } }, grid: { color: '#f0f0f0' } },
+        y: { min: yMin, max: yMax, title: { display: true, text: `(${unit})`, font: { size: 10 } }, grid: { color: '#f0f0f0' } }
+      }
+    }
+  });
+}
+
+function showError(msg) {
+  document.getElementById('sensor-tabs').style.display = 'none';
+  document.getElementById('panel-body').innerHTML = `<div class="error-box">Errore: ${msg}</div>`;
+}
+
+// ── AUTO-REFRESH ──────────────────────────────────────────────────────────────
+function getNextHalfHour() { const halfMs = 30*60*1000, margin = 2*60*1000; return Math.ceil((Date.now()+1000)/halfMs)*halfMs+margin; }
+function formatCountdown(ms) { if (ms <= 0) return 'agg...'; const s = Math.floor(ms/1000); return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
+function scheduleRefresh() { nextRefresh = getNextHalfHour(); tickCountdown(); }
+function tickCountdown() {
+  const rem = nextRefresh - Date.now();
+  document.getElementById('countdown-label').textContent = formatCountdown(rem);
+  if (rem <= 0) { if (currentStnRef) loadStation(currentStnRef, true); scheduleRefresh(); }
+  else { setTimeout(tickCountdown, 1000); }
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+initMarkers();
+scheduleRefresh();
+</script>
+
+<!-- Pulsante info -->
+<button id="btn-info-map" onclick="document.getElementById('info-modal').classList.add('open')" title="Informazioni">i</button>
+
+<!-- Modal info -->
+<div id="info-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div id="info-box">
+    <button id="btn-close-info" onclick="document.getElementById('info-modal').classList.remove('open')">&#x2715;</button>
+    <h2>Informazioni sull'app</h2>
+
+    <h3>
+      <span class="info-area-badge" style="background:#166534">Attesa</span>
+      Area di attesa
+    </h3>
+    <p>Punto di raccolta sicuro per la popolazione in caso di evacuazione. Recati qui <strong>immediatamente</strong> se ricevi un'allerta di evacuazione dalla Protezione Civile o dalle autorità locali. Rimani in attesa di istruzioni.</p>
+
+    <h3>
+      <span class="info-area-badge" style="background:#991b1b">Ricovero</span>
+      Area di ricovero
+    </h3>
+    <p>Struttura attrezzata per ospitare la popolazione evacuata (tendopoli, palestre, strutture coperte). Raggiungi quest'area solo se indicato dalle autorità dopo la fase di attesa, o se hai bisogno di assistenza prolungata.</p>
+
+    <h3>
+      <span class="info-area-badge" style="background:#a16207">Ammassamento</span>
+      Area di ammassamento
+    </h3>
+    <p>Zona riservata ai soccorritori e ai mezzi di emergenza provenienti da fuori comune. <strong>Non è accessibile alla popolazione.</strong> Serve come base logistica per la gestione dell'emergenza.</p>
+
+    <h3>📡 Dati idrometrici ARPAV</h3>
+    <p>I livelli idrometrici e le precipitazioni sono forniti da <strong>ARPAV – Agenzia Regionale per la Prevenzione e Protezione Ambientale del Veneto</strong>, aggiornati ogni 30 minuti.</p>
+    <p>
+      <a href="https://www.arpa.veneto.it/dati-ambientali/dati-in-diretta/meteo-idro-nivo/pannello-meteo-segnalazioni" target="_blank">
+        → Dati idrometrici in diretta ARPAV
+      </a>
+    </p>
+
+    <h3>🗺️ Dati geografici</h3>
+    <p>Corsi d'acqua e aree di protezione civile sono caricati da <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> tramite Overpass API.</p>
+  </div>
+</div>
+
+
+</body>
+</html>
