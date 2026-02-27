@@ -550,6 +550,13 @@ function setActiveMarker(id) {
   STATIONS.forEach(s => markerRefs[s.id]?.setIcon(buildIcon(s, s.id === id)));
 }
 
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/PC_APP/sw.js')
+    .then(reg => console.log('SW registrato', reg))
+    .catch(err => console.error('SW errore', err));
+}
+
+	
 async function initMarkers() {
   fetch('https://nominatim.openstreetmap.org/lookup?osm_type=R&osm_ids=45549&format=json&polygon_geojson=1')
     .then(r => r.json()).then(arr => {
