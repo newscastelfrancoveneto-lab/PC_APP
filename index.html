@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#0e8a8a" />
 
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>ARPAV &amp; Aree Protezione Civile – Castelfranco Veneto</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ARPAV & Aree Protezione Civile – Castelfranco Veneto</title>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -17,259 +17,255 @@
   <script src="https://unpkg.com/osmtogeojson@3.0.0-beta.5/osmtogeojson.js"></script>
 
   <style>
+    /* ── BASE & TYPOGRAPHY ── */
+    :root {
+      --primary: #0e8a8a;
+      --primary-dark: #096b6b;
+      --primary-light: #e0f2f1;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --bg-body: #f1f5f9;
+      --bg-panel: #ffffff;
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.08);
+      --shadow-float: 0 8px 32px rgba(0, 0, 0, 0.12);
+    }
+    
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     html, body { height: 100%; overflow: hidden; }
-    body { font-family: 'Segoe UI', system-ui, Arial, sans-serif; background: #f0f4f8; color: #222; }
+    body { font-family: 'Inter', 'Segoe UI', system-ui, Arial, sans-serif; background: var(--bg-body); color: var(--text-main); }
 
-    #app { display: flex; height: 100vh; }
-    #map { flex: 1; z-index: 1; min-width: 0; }
+    /* ── STRUTTURA PRINCIPALE ── */
+    #app { display: flex; flex-direction: column; height: 100vh; position: relative; }
+    #map { flex: 1; z-index: 1; min-height: 0; width: 100%; order: 2; }
 
+    /* ── PANNELLO DATI (TOP) ── */
     #panel {
-      width: 400px; flex-shrink: 0; background: #fff;
+      width: 100%; height: 420px; max-height: 55vh; flex-shrink: 0; background: var(--bg-panel);
       display: flex; flex-direction: column;
-      box-shadow: -2px 0 12px rgba(0,0,0,.1);
-      overflow: hidden; z-index: 2; transition: transform .3s ease;
+      box-shadow: 0 4px 16px rgba(0,0,0,.1);
+      overflow: hidden; z-index: 2; transition: height 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+      order: 1; border-bottom: 1px solid #e2e8f0;
     }
-    #panel.hidden-desktop { transform: translateX(100%); width: 0; }
+    #panel.hidden-desktop { height: 0; border-bottom: none; }
 
     #panel-header {
-      background: #0e8a8a; color: #fff;
-      padding: 11px 14px; flex-shrink: 0;
-      display: flex; align-items: flex-start; gap: 8px;
+      background: var(--primary); color: #fff;
+      padding: 14px 18px; flex-shrink: 0;
+      display: flex; align-items: center; gap: 12px;
     }
     #panel-header-text { flex: 1; min-width: 0; }
-    #panel-header-text .title { font-size: .92rem; font-weight: 700; line-height: 1.3; }
-    #panel-header-text small { display: block; font-weight: 400; font-size: .74rem; opacity: .85; margin-top: 2px; }
+    #panel-header-text .title { font-size: 1.05rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; }
+    #panel-header-text small { display: block; font-weight: 400; font-size: 0.78rem; opacity: 0.9; margin-top: 3px; }
 
     #refresh-badge {
-      background: rgba(255,255,255,.18);
+      background: rgba(255,255,255,.2); backdrop-filter: blur(4px);
       border: 1px solid rgba(255,255,255,.3); border-radius: 20px;
-      padding: 3px 9px; font-size: .7rem; white-space: nowrap;
-      display: none; align-items: center; gap: 5px; flex-shrink: 0; margin-top: 2px;
+      padding: 4px 10px; font-size: 0.7rem; font-weight: 600; white-space: nowrap;
+      display: none; align-items: center; gap: 6px; flex-shrink: 0;
     }
     #refresh-badge.visible { display: flex; }
-    #refresh-badge .dot {
-      width: 6px; height: 6px; border-radius: 50%;
-      background: #7fffb0; animation: pulse 2s infinite;
-    }
+    #refresh-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: #6ee7b7; animation: pulse 2s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
 
     #btn-close-panel {
-      background: rgba(255,255,255,.2); border: 1.5px solid rgba(255,255,255,.4);
-      border-radius: 50%; width: 28px; height: 28px;
-      color: #fff; font-size: 1rem; cursor: pointer; flex-shrink: 0; margin-top: 1px;
-      display: flex; align-items: center; justify-content: center; transition: background .15s;
+      background: rgba(255,255,255,.15); border: none;
+      border-radius: 50%; width: 32px; height: 32px;
+      color: #fff; font-size: 1.1rem; cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; transition: background .2s, transform .2s;
     }
-    #btn-close-panel:hover { background: rgba(255,255,255,.35); }
+    #btn-close-panel:hover { background: rgba(255,255,255,.3); transform: scale(1.05); }
 
+    /* ── TABS SENSORI ── */
     #sensor-tabs {
-      display: flex; flex-shrink: 0;
-      border-bottom: 2px solid #e0e8f4; background: #f7f9fc;
-      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      display: flex; flex-shrink: 0; background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0; overflow-x: auto; -webkit-overflow-scrolling: touch;
+      padding: 0 8px;
     }
     #sensor-tabs::-webkit-scrollbar { display: none; }
     .s-tab {
-      flex: 1; min-width: 90px; padding: 10px 6px;
-      font-size: .75rem; font-weight: 600; text-align: center;
-      cursor: pointer; color: #6a8099; border-bottom: 3px solid transparent;
-      border: none; background: none; white-space: nowrap; transition: all .15s;
+      flex: 1; min-width: 100px; padding: 12px 8px;
+      font-size: 0.8rem; font-weight: 600; text-align: center;
+      cursor: pointer; color: var(--text-muted); border: none; border-bottom: 3px solid transparent;
+      background: none; white-space: nowrap; transition: color .2s;
     }
-    .s-tab:hover { color: #0e8a8a; background: #edf3fb; }
-    .s-tab.active { color: #0e8a8a; border-bottom: 3px solid #0e8a8a; background: #fff; }
+    .s-tab:hover { color: var(--primary); }
+    .s-tab.active { color: var(--primary); border-bottom: 3px solid var(--primary); }
 
-    #panel-body { flex: 1; overflow-y: auto; padding: 12px; -webkit-overflow-scrolling: touch; }
+    #panel-body { flex: 1; overflow-y: auto; padding: 16px; -webkit-overflow-scrolling: touch; }
 
+    /* ── CONTENUTO PANNELLO ── */
     .placeholder {
-      display: flex; flex-direction: column; align-items: center;
-      justify-content: center; height: 100%; color: #8a9bb0;
-      text-align: center; padding: 30px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100%; color: var(--text-muted); text-align: center; padding: 30px;
     }
-    .placeholder svg { margin-bottom: 14px; opacity: .4; }
-    .placeholder p { font-size: .86rem; line-height: 1.55; }
+    .placeholder svg { margin-bottom: 16px; opacity: 0.3; color: var(--primary); }
+    .placeholder p { font-size: 0.9rem; line-height: 1.5; font-weight: 500; }
 
-    .stat-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; margin-bottom: 12px; }
-    .stat-card { background: #f0f6ff; border-radius: 8px; padding: 8px 6px; text-align: center; border: 1px solid #cde0f7; }
-    .stat-card .val { font-size: 1rem; font-weight: 700; color: #0e8a8a; }
-    .stat-card .lbl { font-size: .62rem; color: #6a8099; margin-top: 2px; }
+    .stat-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 16px; }
+    .stat-card {
+      background: #fff; border-radius: var(--radius-md); padding: 10px 6px;
+      text-align: center; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    .stat-card .val { font-size: 1.05rem; font-weight: 800; color: var(--primary); }
+    .stat-card .lbl { font-size: 0.65rem; color: var(--text-muted); margin-top: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
 
     .soglie-legend {
-      display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;
-      padding: 7px 10px; background: #fafbfd; border: 1px solid #e8eef5; border-radius: 7px;
+      display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px;
+      padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-md);
     }
-    .soglia-item { display: flex; align-items: center; gap: 5px; font-size: .72rem; color: #444; }
+    .soglia-item { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--text-main); font-weight: 500; }
     .soglia-line { width: 20px; height: 0; border-top: 2.5px dashed currentColor; flex-shrink: 0; }
 
-    .chart-wrap { position: relative; height: 200px; margin-bottom: 12px; }
-    .data-table { width: 100%; border-collapse: collapse; font-size: .76rem; }
-    .data-table th { background: #e8f0fa; padding: 6px 8px; text-align: left; font-weight: 600; color: #0e8a8a; border-bottom: 2px solid #c5d6ee; position: sticky; top: 0; z-index: 1; }
-    .data-table td { padding: 5px 8px; border-bottom: 1px solid #eef1f5; }
-    .data-table tr:hover td { background: #f5f8ff; }
-    .data-table tr.latest td { background: #eaf6ff; font-weight: 600; }
-    .data-table tr.over-s3 td { background: #fff0f0; color: #c0392b; font-weight: 600; }
-    .data-table tr.over-s2 td { background: #fff7ee; color: #d35400; }
-    .data-table tr.over-s1 td { background: #fffde7; color: #856404; }
+    .chart-wrap { position: relative; height: 200px; margin-bottom: 16px; }
+    
+    /* ── TABELLA ── */
+    .data-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.8rem; border: 1px solid #e2e8f0; border-radius: var(--radius-md); overflow: hidden; }
+    .data-table th { background: #f1f5f9; padding: 10px 12px; text-align: left; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 1; }
+    .data-table td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; color: var(--text-main); }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: #f8fafc; }
+    .data-table tr.latest td { background: var(--primary-light); font-weight: 600; color: var(--primary-dark); }
+    .data-table tr.over-s3 td { background: #fef2f2; color: #b91c1c; font-weight: 700; }
+    .data-table tr.over-s2 td { background: #fff7ed; color: #c2410c; font-weight: 600; }
+    .data-table tr.over-s1 td { background: #fefce8; color: #a16207; font-weight: 600; }
 
-    .loading { display: flex; align-items: center; justify-content: center; padding: 40px; color: #0e8a8a; font-size: .9rem; gap: 10px; }
-    .spinner { width: 22px; height: 22px; border: 3px solid #b2dfdf; border-top-color: #0e8a8a; border-radius: 50%; animation: spin .7s linear infinite; }
+    /* ── UTILS ── */
+    .loading { display: flex; align-items: center; justify-content: center; padding: 50px; color: var(--primary); font-size: 0.95rem; font-weight: 500; gap: 12px; }
+    .spinner { width: 24px; height: 24px; border: 3px solid var(--primary-light); border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .error-box { background: #fff3f3; border: 1px solid #f5c6cb; border-radius: 8px; padding: 12px; font-size: .82rem; color: #721c24; line-height: 1.5; }
+    .error-box { background: #fef2f2; border: 1px solid #fecaca; border-radius: var(--radius-md); padding: 14px; font-size: 0.85rem; color: #b91c1c; line-height: 1.5; font-weight: 500; }
 
+    /* ── MAPPA E MARKER ── */
     .stn-marker {
       border-radius: 50%; display: flex; align-items: center; justify-content: center;
-      border: 2px solid rgba(255,255,255,.9); box-shadow: 0 1px 6px rgba(0,0,0,.45);
-      cursor: pointer; background: #0e8a8a;
+      border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.4);
+      cursor: pointer; background: var(--primary); transition: transform 0.2s;
     }
-    .stn-marker.active { border: 3px solid #fff; }
+    .stn-marker:hover { transform: scale(1.1); }
+    .stn-marker.active { border: 3px solid #fff; background: #0f172a; transform: scale(1.15); z-index: 1000 !important; }
 
-    .layer-control {
-      background: white; padding: 10px 12px; border-radius: 8px;
-      font-family: 'Segoe UI', system-ui, Arial, sans-serif;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.15); min-width: 170px;
+    /* ── MENU LAYER CUSTOM (COLLAPSIBLE) ── */
+    .custom-layer-control-container { position: relative; font-family: 'Inter', system-ui, sans-serif; }
+    
+    .layer-control-toggle {
+      width: 44px; height: 44px; border-radius: 50%; background: #fff; border: none;
+      box-shadow: var(--shadow-soft); cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: var(--text-main); transition: all 0.2s; outline: none;
     }
-    .layer-control-header { font-weight: 700; font-size: 0.85rem; margin-bottom: 6px; color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
-    .layer-control-section-title {
-      font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
-      color: #94a3b8; letter-spacing: .05em;
-      margin: 8px 0 4px; padding-top: 6px;
-      border-top: 1px solid #e2e8f0;
+    .layer-control-toggle:hover { background: #f8fafc; color: var(--primary); }
+    
+    .layer-control-menu {
+      position: absolute; top: 0; right: 54px; width: 240px;
+      background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      border-radius: var(--radius-lg); padding: 14px;
+      box-shadow: var(--shadow-float); border: 1px solid rgba(255,255,255,0.5);
+      opacity: 0; visibility: hidden; transform: translateX(10px) scale(0.95);
+      transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1); transform-origin: top right;
     }
-    .layer-control-section-title.first { border-top: none; margin-top: 2px; padding-top: 0; }
-    .layer-control-items { display: flex; flex-direction: column; gap: 6px; }
-    .layer-control-item { display: flex; align-items: center; gap: 7px; font-size: 0.75rem; color: #334155; font-weight: 500; cursor: pointer; }
-    .layer-swatch { width: 20px; height: 4px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
-    .layer-swatch.area { height: 14px; border-radius: 3px; border: 1.5px solid; }
+    .layer-control-menu.open { opacity: 1; visibility: visible; transform: translateX(0) scale(1); }
+    
+    .layer-control-header { font-weight: 700; font-size: 0.9rem; margin-bottom: 10px; color: var(--text-main); border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
+    .layer-control-section-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: .05em; margin: 12px 0 6px; }
+    .layer-control-section-title.first { margin-top: 2px; }
+    .layer-control-items { display: flex; flex-direction: column; gap: 8px; }
+    
+    .layer-control-item {
+      display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-main); font-weight: 500; cursor: pointer;
+      padding: 4px 0;
+    }
+    /* Stile personalizzato per le checkbox */
+    .layer-control-item input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
+    .layer-swatch { width: 22px; height: 4px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+    .layer-swatch.area { height: 16px; border-radius: 4px; border: 2px solid; }
+    
     #btn-load-cpa {
-      background: #1e293b; color: white; border: none; padding: 6px; width: 100%;
-      border-radius: 5px; cursor: pointer; font-size: 0.75rem; transition: background 0.2s;
-      font-weight: 600; margin-top: 8px; display: block;
+      background: var(--text-main); color: white; border: none; padding: 10px; width: 100%;
+      border-radius: 8px; cursor: pointer; font-size: 0.8rem; transition: background 0.2s;
+      font-weight: 600; margin-top: 14px; display: block;
     }
     #btn-load-cpa:hover { background: #0f172a; }
 
-    #fab-open {
-      display: none; position: fixed; bottom: 22px; right: 18px; z-index: 500;
-      background: #0e8a8a; color: #fff; width: 52px; height: 52px;
-      border-radius: 50%; border: none; box-shadow: 0 4px 14px rgba(0,0,0,.35);
-      cursor: pointer; align-items: center; justify-content: center;
-    }
-
-    @media (max-width: 700px) {
-      #app { flex-direction: column; height: 100vh; position: relative; }
-      #map { height: 100%; width: 100%; }
-      #panel {
-        position: fixed; bottom: 0; left: 0; right: 0;
-        width: 100%; height: 75vh; border-radius: 18px 18px 0 0;
-        box-shadow: 0 -4px 20px rgba(0,0,0,.2); transform: translateY(100%);
-      }
-      #panel.open { transform: translateY(0) !important; width: 100% !important; }
-      #panel.hidden-desktop { transform: translateY(100%); width: 100%; }
-      #panel-header { padding-top: 14px; position: relative; }
-      #panel-header::before {
-        content: ''; display: block; position: absolute;
-        top: 6px; left: 50%; transform: translateX(-50%);
-        width: 36px; height: 4px; background: rgba(255,255,255,.4); border-radius: 2px;
-      }
-      #fab-open { display: flex; }
-      #fab-open.hidden { display: none; }
-      .stat-card .val { font-size: .92rem; }
-      .chart-wrap { height: 175px; }
-      .data-table { font-size: .72rem; }
-    }
-
-    /* ── Modal info ── */
-    #info-modal {
-      display: none; position: fixed; inset: 0; z-index: 9999;
-      background: rgba(0,0,0,.45); align-items: center; justify-content: center;
-    }
-    #info-modal.open { display: flex; }
-    #info-box {
-      background: #fff; border-radius: 12px; padding: 22px 24px;
-      max-width: 420px; width: 90%; max-height: 85vh; overflow-y: auto;
-      box-shadow: 0 8px 32px rgba(0,0,0,.25); position: relative;
-      font-family: 'Segoe UI', system-ui, Arial, sans-serif;
-    }
-    #info-box h2 { font-size: 1rem; color: #0e8a8a; margin-bottom: 14px; }
-    #info-box h3 { font-size: .82rem; font-weight: 700; color: #1e293b; margin: 12px 0 4px; display: flex; align-items: center; gap: 6px; }
-    #info-box p  { font-size: .78rem; color: #444; line-height: 1.6; margin-bottom: 6px; }
-    #info-box a  { color: #0e8a8a; font-weight: 600; }
-    .info-area-badge {
-      display: inline-block; border-radius: 4px; padding: 2px 7px;
-      font-size: .7rem; font-weight: 700; color: #fff; margin-right: 4px;
-    }
-    #btn-close-info {
-      position: absolute; top: 12px; right: 14px;
-      background: #f1f5f9; border: none; border-radius: 50%;
-      width: 28px; height: 28px; font-size: 1rem; cursor: pointer;
-      display: flex; align-items: center; justify-content: center; color: #475569;
-    }
-    #btn-close-info:hover { background: #e2e8f0; }
-
-    #btn-info-map {
-      position: fixed; bottom: 22px; left: 18px; z-index: 500;
-      background: #fff; color: #0e8a8a; width: 38px; height: 38px;
-      border-radius: 50%; border: 2px solid #0e8a8a;
-      box-shadow: 0 2px 8px rgba(0,0,0,.2);
-      cursor: pointer; font-size: 1rem; font-weight: 700;
+    /* ── FABS (Pulsanti Fluttuanti) ── */
+    .fab-container { position: fixed; bottom: 24px; left: 16px; z-index: 500; display: flex; flex-direction: column; gap: 12px; }
+    
+    .fab-btn {
+      background: #fff; color: var(--primary); width: 44px; height: 44px;
+      border-radius: 50%; border: none; box-shadow: var(--shadow-float);
+      cursor: pointer; font-size: 1.2rem; font-weight: 700;
       display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s; outline: none;
     }
-    #btn-info-map:hover { background: #0e8a8a; color: #fff; }
+    .fab-btn:hover { transform: translateY(-2px); background: var(--primary-light); }
+    .fab-btn.primary { background: var(--primary); color: #fff; }
+    .fab-btn.primary:hover { background: var(--primary-dark); }
 
-    /* ── Barra Allerta ── */
+    /* ── BARRA ALLERTA ── */
     #allerta-bar {
       display: none; position: relative; z-index: 100;
-      padding: 8px 14px; cursor: pointer;
+      padding: 10px 16px; cursor: pointer;
       flex-shrink: 0; transition: background .3s;
+      order: 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
-    #allerta-bar.visible { display: flex; align-items: center; gap: 10px; }
-    #allerta-bar-inner { display: flex; align-items: center; gap: 10px; flex: 1; flex-wrap: wrap; }
-    .allerta-bollino-wrap { display: flex; align-items: center; gap: 5px; font-size: .78rem; font-weight: 600; color: #fff; }
-    .allerta-bollino { width: 18px; height: 18px; border-radius: 50%; border: 2px solid rgba(255,255,255,.7); flex-shrink: 0; }
-    #allerta-bar-title { font-size: .8rem; font-weight: 700; color: #fff; opacity: .9; margin-left: auto; white-space: nowrap; }
-    #allerta-bar-chevron { color: rgba(255,255,255,.8); font-size: .9rem; flex-shrink: 0; }
+    #allerta-bar.visible { display: flex; align-items: center; gap: 12px; }
+    #allerta-bar-inner { display: flex; align-items: center; gap: 12px; flex: 1; flex-wrap: wrap; }
+    .allerta-bollino-wrap { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .allerta-bollino { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(255,255,255,.9); flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+    #allerta-bar-title { font-size: 0.85rem; font-weight: 700; color: #fff; opacity: .9; margin-left: auto; white-space: nowrap; }
+    #allerta-bar-chevron { color: rgba(255,255,255,.9); font-size: 0.9rem; flex-shrink: 0; }
 
-    /* ── Modal Allerta ── */
-    #allerta-modal {
-      display: none; position: fixed; inset: 0; z-index: 9998;
-      background: rgba(0,0,0,.5); align-items: flex-end; justify-content: center;
+    /* ── MODALI (Allerta & Info) ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+      align-items: center; justify-content: center;
     }
-    #allerta-modal.open { display: flex; }
-    #allerta-box {
-      background: #fff; border-radius: 16px 16px 0 0; padding: 22px 20px 30px;
-      width: 100%; max-width: 540px; max-height: 85vh; overflow-y: auto;
-      box-shadow: 0 -4px 24px rgba(0,0,0,.2);
-      font-family: 'Segoe UI', system-ui, Arial, sans-serif;
-      animation: slideUp .25s ease;
+    .modal-overlay.open { display: flex; }
+    
+    .modal-box {
+      background: #fff; border-radius: var(--radius-lg); padding: 24px;
+      max-width: 450px; width: 92%; max-height: 85vh; overflow-y: auto;
+      box-shadow: var(--shadow-float); position: relative;
+      animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
+    @keyframes popIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+
+    /* Bottom sheet per mobile nel modale allerta */
+    #allerta-box { border-radius: 20px 20px 0 0; animation: slideUp .3s cubic-bezier(0.2, 0.8, 0.2, 1); align-self: flex-end; width: 100%; max-width: 600px; padding-bottom: env(safe-area-inset-bottom, 30px); }
     @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-    #allerta-box .drag-handle {
-      width: 36px; height: 4px; background: #cbd5e1; border-radius: 2px;
-      margin: 0 auto 16px;
-    }
-    #allerta-box h2 { font-size: .95rem; color: #1e293b; margin-bottom: 4px; }
-    #allerta-box .periodo { font-size: .75rem; color: #64748b; margin-bottom: 14px; }
-    .allerta-row {
-      display: flex; align-items: center; gap: 10px;
-      padding: 8px 10px; border-radius: 8px; margin-bottom: 6px;
-      background: #f8fafc; border: 1px solid #e2e8f0;
-    }
-    .allerta-row .bollino-lg { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; }
-    .allerta-row .label { font-size: .8rem; font-weight: 600; color: #334155; }
-    .allerta-row .livello { font-size: .8rem; font-weight: 700; margin-left: auto; }
-    .allerta-section-title {
-      font-size: .72rem; font-weight: 700; text-transform: uppercase;
-      color: #94a3b8; letter-spacing: .05em; margin: 14px 0 6px;
-    }
-    .allerta-section-body {
-      font-size: .78rem; color: #475569; line-height: 1.6;
-      background: #f8fafc; border-radius: 8px; padding: 10px 12px;
-      border: 1px solid #e2e8f0; white-space: pre-wrap;
-    }
-    #btn-close-allerta {
-      position: absolute; top: 14px; right: 16px;
+    #allerta-box .drag-handle { width: 40px; height: 5px; background: #cbd5e1; border-radius: 3px; margin: -10px auto 20px; }
+
+    .modal-close-btn {
+      position: absolute; top: 16px; right: 16px;
       background: #f1f5f9; border: none; border-radius: 50%;
-      width: 28px; height: 28px; font-size: 1rem; cursor: pointer;
-      display: flex; align-items: center; justify-content: center; color: #475569;
+      width: 32px; height: 32px; font-size: 1rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; color: var(--text-muted); transition: background 0.2s;
     }
-    #btn-close-allerta:hover { background: #e2e8f0; }
+    .modal-close-btn:hover { background: #e2e8f0; color: var(--text-main); }
+
+    .modal-box h2 { font-size: 1.1rem; color: var(--text-main); margin-bottom: 8px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+    .modal-box h3 { font-size: 0.9rem; font-weight: 700; color: var(--text-main); margin: 20px 0 6px; display: flex; align-items: center; gap: 8px; }
+    .modal-box p { font-size: 0.85rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 10px; }
+    .modal-box a { color: var(--primary); font-weight: 600; text-decoration: none; }
+    .modal-box a:hover { text-decoration: underline; }
+    
+    .info-area-badge { display: inline-block; border-radius: 6px; padding: 3px 8px; font-size: 0.75rem; font-weight: 700; color: #fff; margin-right: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+
+    .allerta-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--radius-md); margin-bottom: 8px; background: #f8fafc; border: 1px solid #e2e8f0; }
+    .allerta-row .bollino-lg { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+    .allerta-row .label { font-size: 0.85rem; font-weight: 600; color: var(--text-main); }
+    .allerta-row .livello { font-size: 0.85rem; font-weight: 800; margin-left: auto; text-transform: uppercase; }
+    
+    .allerta-section-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: .05em; margin: 20px 0 8px; }
+    .allerta-section-body { font-size: 0.85rem; color: var(--text-main); line-height: 1.6; background: #f8fafc; border-radius: var(--radius-md); padding: 14px; border: 1px solid #e2e8f0; white-space: pre-wrap; }
+    .periodo { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px; font-weight: 500; }
+
+    /* Leaflet Overrides per estetica moderna */
+    .leaflet-bar { border: none !important; box-shadow: var(--shadow-soft) !important; border-radius: 8px !important; overflow: hidden; }
+    .leaflet-bar a { background-color: #fff !important; color: var(--text-main) !important; width: 36px !important; height: 36px !important; line-height: 36px !important; transition: background 0.2s; }
+    .leaflet-bar a:hover { background-color: #f8fafc !important; color: var(--primary) !important; }
+    .leaflet-control-attribution { border-radius: 4px 0 0 0; background: rgba(255,255,255,0.8) !important; backdrop-filter: blur(4px); color: var(--text-muted) !important; font-size: 10px !important; }
 
   </style>
 </head>
@@ -277,42 +273,56 @@
 
 <div id="app">
 
-<!-- Barra Allerta -->
-<div id="allerta-bar" onclick="document.getElementById('allerta-modal').classList.add('open')">
-  <div id="allerta-bar-inner">
-    <div class="allerta-bollino-wrap">
-      <div class="allerta-bollino" id="bar-bollino-idr"></div>
-      <span id="bar-label-idr">Idraulico</span>
+  <div id="allerta-bar" onclick="document.getElementById('allerta-modal').classList.add('open')">
+    <div id="allerta-bar-inner">
+      <div class="allerta-bollino-wrap"><div class="allerta-bollino" id="bar-bollino-idr"></div><span id="bar-label-idr">Idraulico</span></div>
+      <div class="allerta-bollino-wrap"><div class="allerta-bollino" id="bar-bollino-idro"></div><span id="bar-label-idro">Idrogeologico</span></div>
+      <div class="allerta-bollino-wrap"><div class="allerta-bollino" id="bar-bollino-temp"></div><span id="bar-label-temp">Temporali</span></div>
     </div>
-    <div class="allerta-bollino-wrap">
-      <div class="allerta-bollino" id="bar-bollino-idro"></div>
-      <span id="bar-label-idro">Idrogeologico</span>
-    </div>
-    <div class="allerta-bollino-wrap">
-      <div class="allerta-bollino" id="bar-bollino-temp"></div>
-      <span id="bar-label-temp">Temporali</span>
-    </div>
+    <span id="allerta-bar-title">Allerta ARPAV</span>
+    <span id="allerta-bar-chevron">▲</span>
   </div>
-  <span id="allerta-bar-title">Allerta ARPAV</span>
-  <span id="allerta-bar-chevron">▲</span>
-</div>
 
-<!-- Modal Allerta -->
-<div id="allerta-modal" onclick="if(event.target===this)this.classList.remove('open')">
-  <div id="allerta-box" style="position:relative">
-    <div class="drag-handle"></div>
-    <button id="btn-close-allerta" onclick="document.getElementById('allerta-modal').classList.remove('open')">&#x2715;</button>
-    <h2>⚠️ Bollettino di Allerta Meteo</h2>
-    <div class="periodo" id="allerta-periodo">—</div>
-    <div id="allerta-rows"></div>
-    <div class="allerta-section-title">📋 Previsione Meteo</div>
-    <div class="allerta-section-body" id="allerta-meteo">—</div>
-    <div class="allerta-section-title">🌍 Effetti al Suolo</div>
-    <div class="allerta-section-body" id="allerta-suolo">—</div>
+  <div id="allerta-modal" class="modal-overlay" style="align-items: flex-end;" onclick="if(event.target===this)this.classList.remove('open')">
+    <div id="allerta-box" class="modal-box">
+      <div class="drag-handle"></div>
+      <button class="modal-close-btn" onclick="document.getElementById('allerta-modal').classList.remove('open')">✕</button>
+      <h2>⚠️ Bollettino Meteo Regionale</h2>
+      <div class="periodo" id="allerta-periodo">—</div>
+      <div id="allerta-rows"></div>
+      <div class="allerta-section-title">📋 Previsione Meteo</div>
+      <div class="allerta-section-body" id="allerta-meteo">—</div>
+      <div class="allerta-section-title">🌍 Effetti al Suolo</div>
+      <div class="allerta-section-body" id="allerta-suolo">—</div>
+    </div>
   </div>
-</div>
+
+  <div id="info-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+    <div id="info-box" class="modal-box">
+      <button class="modal-close-btn" onclick="document.getElementById('info-modal').classList.remove('open')">✕</button>
+      <h2>Informazioni sull'app</h2>
+      <h3><span class="info-area-badge" style="background:#166534">Attesa</span> Area di attesa</h3>
+      <p>Punto di raccolta sicuro per la popolazione in caso di evacuazione. Recati qui <strong>immediatamente</strong> se ricevi un'allerta di evacuazione. Rimani in attesa di istruzioni.</p>
+      <h3><span class="info-area-badge" style="background:#991b1b">Ricovero</span> Area di ricovero</h3>
+      <p>Struttura attrezzata per ospitare la popolazione evacuata. Raggiungi quest'area solo se indicato dalle autorità.</p>
+      <h3><span class="info-area-badge" style="background:#a16207">Ammassamento</span> Area di ammassamento</h3>
+      <p>Zona riservata ai soccorritori e ai mezzi di emergenza. <strong>Non accessibile alla popolazione.</strong></p>
+      <h3>📡 Dati idrometrici ARPAV</h3>
+      <p>Livelli e precipitazioni forniti da <strong>ARPAV</strong>, aggiornati ogni 30 min.<br><a href="https://www.arpa.veneto.it/dati-ambientali/dati-in-diretta/meteo-idro-nivo/pannello-meteo-segnalazioni" target="_blank">→ Dati in diretta ARPAV</a></p>
+      <h3>🗺️ Dati geografici</h3>
+      <p>Corsi d'acqua e aree estratti da <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> tramite Overpass.</p>
+    </div>
+  </div>
 
   <div id="map"></div>
+
+  <div class="fab-container">
+    <button id="fab-open" class="fab-btn primary" style="display:none;" onclick="openPanel()" title="Apri dati">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-4"/></svg>
+    </button>
+    <button onclick="subscribeUser()" class="fab-btn" title="Attiva notifiche push">🔔</button>
+    <button onclick="document.getElementById('info-modal').classList.add('open')" class="fab-btn" title="Informazioni">i</button>
+  </div>
 
   <div id="panel" class="hidden-desktop">
     <div id="panel-header">
@@ -322,28 +332,23 @@
       </div>
       <div id="refresh-badge">
         <div class="dot"></div>
-        <span style="opacity:.8">Prossimo aggiornamento tra:</span>
+        <span style="opacity:.9">Agg. tra:</span>
         <span id="countdown-label">--:--</span>
       </div>
-      <button id="btn-close-panel" onclick="closePanel()" title="Chiudi pannello">&#x2715;</button>
+      <button id="btn-close-panel" onclick="closePanel()" title="Chiudi pannello">✕</button>
     </div>
     <div id="sensor-tabs" style="display:none"></div>
     <div id="panel-body">
       <div class="placeholder">
-        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
-          <path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-4"/>
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle>
         </svg>
-        <p>Tocca un marker per caricare<br>i dati ARPAV delle ultime 48 ore</p>
+        <p>Tocca un sensore sulla mappa per<br>visualizzare i dati in tempo reale.</p>
       </div>
     </div>
   </div>
 </div>
 
-<button id="fab-open" class="hidden" onclick="openPanel()" title="Apri dati">
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-    <path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-4"/>
-  </svg>
-</button>
 
 <script>
 // ── COSTANTI ──────────────────────────────────────────────────────────────────
@@ -354,15 +359,15 @@ const STATIONS = [
   { id: 653, osmNodeId: '12984421539', name: 'Avenale',         subtitle: 'Castelfranco Veneto', lat: 45.6540,      lon: 11.9850,       soglie: { s1: 1.5, s2: 1.8, s3: 2.1 } }
 ];
 const SOGLIA_CFG = [
-  { key: 's1', label: 'Guardia 1', color: '#e0b800' },
-  { key: 's2', label: 'Guardia 2', color: '#e07820' },
-  { key: 's3', label: 'Guardia 3', color: '#d0282a' }
+  { key: 's1', label: 'Guardia 1', color: '#eab308' },
+  { key: 's2', label: 'Guardia 2', color: '#f97316' },
+  { key: 's3', label: 'Guardia 3', color: '#ef4444' }
 ];
 const TYPE_COLOR = {
-  LIVIDRO: { border: '#0e8a8a', fill: 'rgba(14,138,138,.1)' },
-  PRECCUM: { border: '#2196a6', fill: 'rgba(33,150,166,.1)' },
-  PORTATA: { border: '#5a3fa0', fill: 'rgba(90,63,160,.1)' },
-  DEFAULT: { border: '#0e8a8a', fill: 'rgba(14,138,138,.1)' }
+  LIVIDRO: { border: '#0e8a8a', fill: 'rgba(14,138,138,.15)' },
+  PRECCUM: { border: '#0284c7', fill: 'rgba(2,132,199,.15)' },
+  PORTATA: { border: '#7c3aed', fill: 'rgba(124,58,237,.15)' },
+  DEFAULT: { border: '#0e8a8a', fill: 'rgba(14,138,138,.15)' }
 };
 const TAB_LABELS = { LIVIDRO: 'Livello idro.', PRECCUM: 'Precipitazioni', PORTATA: 'Portata' };
 
@@ -373,14 +378,12 @@ const XML_URL  = 'https://www.arpa.veneto.it/api/risorse/data-meteo/xml/Ultime48
 const CSV_BASE = 'https://meteo.arpa.veneto.it/meteo/dati_meteo/xml/';
 const OSM_API  = 'https://api.openstreetmap.org/api/0.6/node/';
 
-// FIX: dichiarate UNA SOLA VOLTA (erano duplicate)
 const VAPID_PUBLIC = 'BHE0353MlqN8My2C-hhYQsC0XXD3QXAuIGnkf-BzCQaeV-I1sLVWlb_rT-C3Q9BJy6wVVSSWtQRsbO_iRRLEQsc';
-const API_BASE = '';
+const API_BASE = 'https://identifying-hotel-jackets-nowhere.trycloudflare.com';
 
 let activeChart = null, currentId = null, currentSensors = [];
 let currentStnRef = null, nextRefresh = null;
 const markerRefs = {};
-const isMobile = () => window.innerWidth <= 700;
 
 // ── PANNELLO UI ───────────────────────────────────────────────────────────────
 function showBadge(show) { document.getElementById('refresh-badge').classList.toggle('visible', show); }
@@ -388,8 +391,7 @@ function showBadge(show) { document.getElementById('refresh-badge').classList.to
 function openPanel() {
   const p = document.getElementById('panel');
   p.classList.remove('hidden-desktop');
-  p.classList.add('open');
-  document.getElementById('fab-open').classList.add('hidden');
+  document.getElementById('fab-open').style.display = 'none';
   if (currentId !== null) showBadge(true);
   setTimeout(() => map.invalidateSize(), 350);
 }
@@ -397,22 +399,21 @@ function openPanel() {
 function closePanel() {
   const p = document.getElementById('panel');
   showBadge(false);
-  if (isMobile()) {
-    p.classList.remove('open');
-    if (currentId !== null) document.getElementById('fab-open').classList.remove('hidden');
-  } else {
-    p.classList.add('hidden-desktop');
-    setTimeout(() => map.invalidateSize(), 350);
-  }
+  p.classList.add('hidden-desktop');
+  if (currentId !== null) document.getElementById('fab-open').style.display = 'flex';
+  setTimeout(() => map.invalidateSize(), 350);
+  
   if (activeChart) { activeChart.destroy(); activeChart = null; }
   currentId = null; currentStnRef = null;
   STATIONS.forEach(s => markerRefs[s.id]?.setIcon(buildIcon(s, false)));
 }
 
 // ── MAPPA ─────────────────────────────────────────────────────────────────────
-const map = L.map('map', { center: [45.6640, 11.9580], zoom: 13 });
+const map = L.map('map', { center: [45.6640, 11.9580], zoom: 13, zoomControl: false });
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; OpenStreetMap', maxZoom: 19
+  attribution: '© OpenStreetMap', maxZoom: 19
 }).addTo(map);
 
 // ── LAYER GROUPS ──────────────────────────────────────────────────────────────
@@ -422,12 +423,12 @@ let activeFilters = ['waiting', 'camp', 'staging'];
 
 // ── WATERWAY ──────────────────────────────────────────────────────────────────
 const WATERWAY_STYLES = {
-  river:   { color: '#1a6bb5', weight: 3.5, opacity: 0.85 },
-  stream:  { color: '#3a8fcc', weight: 2,   opacity: 0.75 },
-  canal:   { color: '#0077a8', weight: 2.5, opacity: 0.80 },
-  drain:   { color: '#5ba8c4', weight: 1.5, opacity: 0.65 },
-  ditch:   { color: '#7bbfd4', weight: 1.2, opacity: 0.60 },
-  default: { color: '#4aa3c8', weight: 1.5, opacity: 0.65 }
+  river:   { color: '#2563eb', weight: 4, opacity: 0.8 },
+  stream:  { color: '#3b82f6', weight: 2.5, opacity: 0.8 },
+  canal:   { color: '#0ea5e9', weight: 3, opacity: 0.8 },
+  drain:   { color: '#38bdf8', weight: 2, opacity: 0.7 },
+  ditch:   { color: '#7dd3fc', weight: 1.5, opacity: 0.7 },
+  default: { color: '#0ea5e9', weight: 2, opacity: 0.7 }
 };
 
 function waterwayStyle(feature) {
@@ -459,9 +460,9 @@ async function loadWaterways() {
         const type = tags.waterway || '';
         const labelMap = { river: 'Fiume', stream: 'Torrente/Rio', canal: 'Canale', drain: 'Scolo', ditch: 'Fosso' };
         layer.bindTooltip(
-          `<b>${name || labelMap[type] || "Corso d'acqua"}</b>` +
-          (name ? `<br><span style="color:#555;font-size:.8em">${labelMap[type] || type}</span>` : ''),
-          { sticky: true }
+          `<div style="font-family:Inter,sans-serif"><b>${name || labelMap[type] || "Corso d'acqua"}</b>` +
+          (name ? `<br><span style="color:#64748b;font-size:.8em">${labelMap[type] || type}</span></div>` : '</div>'),
+          { sticky: true, className: 'custom-tooltip' }
         );
         waterwayLayerGroup.addLayer(layer);
       }
@@ -526,7 +527,7 @@ async function loadCPA() {
         const gt = feature.geometry?.type;
         if (gt === 'Point' || gt === 'MultiPoint') return {};
         const style = CPA_STYLES[getCPAType(feature)] || CPA_STYLES.waiting;
-        return { color: style.color, fillColor: style.fillColor, weight: 2, fillOpacity: 0.4 };
+        return { color: style.color, fillColor: style.fillColor, weight: 2.5, fillOpacity: 0.35 };
       },
       onEachFeature: (feature, layer) => {
         const gt = feature.geometry?.type;
@@ -537,16 +538,17 @@ async function loadCPA() {
         const style = CPA_STYLES[type] || CPA_STYLES.waiting;
         const name  = tags.name || tags.ref || null;
 
-        layer.bindPopup(`<div style="font-family:sans-serif;font-size:0.85rem;">
-          <strong style="color:${style.color}">${style.label}</strong>
-          ${name ? `<br><span style="font-size:0.75rem;color:#555">${name}</span>` : ''}
-          <br><br>
-          <a href="https://www.google.com/maps/dir/?api=1&destination=${centroid(feature)}"
-             target="_blank"
-             style="display:inline-block;background:#0e8a8a;color:#fff;padding:5px 12px;
-                    border-radius:5px;text-decoration:none;font-size:0.78rem;font-weight:600;">
-            &#9650; Naviga
-          </a>
+        layer.bindPopup(`<div style="font-family:'Inter',sans-serif;font-size:0.9rem;">
+          <strong style="color:${style.color};font-size:1rem;">${style.label}</strong>
+          ${name ? `<br><span style="font-size:0.8rem;color:#64748b;margin-top:4px;display:block;">${name}</span>` : ''}
+          <div style="margin-top:12px;">
+            <a href="https://www.google.com/maps/dir/?api=1&destination=${centroid(feature)}"
+               target="_blank"
+               style="display:inline-flex;align-items:center;gap:6px;background:var(--primary);color:#fff;padding:8px 14px;
+                      border-radius:8px;text-decoration:none;font-size:0.8rem;font-weight:600;transition:background 0.2s;">
+              ▲ Naviga con Maps
+            </a>
+          </div>
         </div>`);
 
         if (!cpaLayers[type]) cpaLayers[type] = L.layerGroup();
@@ -559,7 +561,7 @@ async function loadCPA() {
   } catch (e) {
     console.error('Errore Overpass CPA:', e);
   } finally {
-    if (btn) btn.textContent = 'Aggiorna';
+    if (btn) btn.textContent = 'Aggiorna Dati';
   }
 }
 
@@ -579,37 +581,58 @@ function toggleWaterways(visible) {
   else map.removeLayer(waterwayLayerGroup);
 }
 
-// ── LAYER SWITCHER UNIFICATO (top-left) ───────────────────────────────────────
+// ── LAYER SWITCHER UNIFICATO (CUSTOM COLLAPSIBLE) ─────────────────────────────
 const LayerSwitcher = L.Control.extend({
-  options: { position: 'topleft' },
+  options: { position: 'topright' },
   onAdd: function() {
-    const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control layer-control');
-    div.innerHTML = `
-      <div class="layer-control-header">Layer</div>
+    const container = L.DomUtil.create('div', 'custom-layer-control-container');
+    
+    container.innerHTML = `
+      <button class="layer-control-toggle" title="Livelli Mappa">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+      </button>
+      <div class="layer-control-menu">
+        <div class="layer-control-header">Livelli Mappa</div>
 
-      <div class="layer-control-section-title first">Idrografia</div>
-      <div class="layer-control-items">
-        <label class="layer-control-item">
-          <input type="checkbox" id="toggle-waterways" checked onchange="toggleWaterways(this.checked)">
-          <span class="layer-swatch" style="background:#1a6bb5"></span>
-          Corsi d'acqua
-        </label>
-      </div>
-
-      <div class="layer-control-section-title">Aree Protezione Civile</div>
-      <div class="layer-control-items">
-        ${Object.entries(CPA_STYLES).map(([key, style]) => `
+        <div class="layer-control-section-title first">Idrografia</div>
+        <div class="layer-control-items">
           <label class="layer-control-item">
-            <input type="checkbox" id="filter-${key}" checked onchange="toggleCPA('${key}')">
-            <span class="layer-swatch area" style="background:${style.fillColor}55;border-color:${style.color}"></span>
-            ${style.label}
+            <input type="checkbox" id="toggle-waterways" checked onchange="toggleWaterways(this.checked)">
+            <span class="layer-swatch" style="background:#2563eb"></span>
+            Corsi d'acqua
           </label>
-        `).join('')}
+        </div>
+
+        <div class="layer-control-section-title">Aree Protezione Civile</div>
+        <div class="layer-control-items">
+          ${Object.entries(CPA_STYLES).map(([key, style]) => `
+            <label class="layer-control-item">
+              <input type="checkbox" id="filter-${key}" checked onchange="toggleCPA('${key}')">
+              <span class="layer-swatch area" style="background:${style.fillColor}30;border-color:${style.color}"></span>
+              ${style.label}
+            </label>
+          `).join('')}
+        </div>
+        <button id="btn-load-cpa" onclick="loadCPA()">Aggiorna Dati OSM</button>
       </div>
-      <button id="btn-load-cpa" onclick="loadCPA()">Aggiorna</button>
     `;
-    L.DomEvent.disableClickPropagation(div);
-    return div;
+
+    L.DomEvent.disableClickPropagation(container);
+    L.DomEvent.disableScrollPropagation(container);
+
+    const toggleBtn = container.querySelector('.layer-control-toggle');
+    const menu = container.querySelector('.layer-control-menu');
+
+    // Apri/chiudi al click del bottone
+    toggleBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      menu.classList.toggle('open');
+    });
+
+    // Chiudi se clicchi fuori (sulla mappa)
+    map.on('click', () => menu.classList.remove('open'));
+
+    return container;
   }
 });
 map.addControl(new LayerSwitcher());
@@ -635,10 +658,10 @@ async function loadOSMNode(stn) {
 }
 
 function buildIcon(stn, active) {
-  const size = active ? 28 : 24, anchor = size / 2;
+  const size = active ? 32 : 26, anchor = size / 2;
   return L.divIcon({
     html: `<div class="stn-marker${active ? ' active' : ''}" style="width:${size}px;height:${size}px;">${ARPA_SVG}</div>`,
-    className: '', iconSize: [size, size], iconAnchor: [anchor, anchor], popupAnchor: [0, -anchor - 4]
+    className: '', iconSize: [size, size], iconAnchor: [anchor, anchor], popupAnchor: [0, -anchor - 6]
   });
 }
 
@@ -647,10 +670,11 @@ function setActiveMarker(id) {
 }
 
 async function initMarkers() {
+  // Limite comunale Castelfranco
   fetch('https://nominatim.openstreetmap.org/lookup?osm_type=R&osm_ids=45549&format=json&polygon_geojson=1')
     .then(r => r.json()).then(arr => {
       if (arr?.[0]?.geojson)
-        L.geoJSON(arr[0].geojson, { style: { color: '#0e8a8a', weight: 2, fillOpacity: .05, fillColor: '#0e8a8a', dashArray: '6 4' } }).addTo(map);
+        L.geoJSON(arr[0].geojson, { style: { color: 'var(--primary)', weight: 2, fillOpacity: .03, fillColor: 'var(--primary)', dashArray: '6 6' } }).addTo(map);
     }).catch(() => {});
 
   loadWaterways();
@@ -660,10 +684,10 @@ async function initMarkers() {
   STATIONS.forEach(stn => {
     const m = L.marker([stn.lat, stn.lon], { icon: buildIcon(stn, false) }).addTo(map)
       .bindTooltip(
-        `<b>${stn.name}</b><br>${stn.subtitle}` +
-        (stn.osmName ? `<br><i style="font-size:.8em;color:#555">${stn.osmName}</i>` : '') +
-        `<br><span style="font-size:.8em;color:#666">ARPAV #${stn.id}</span>`,
-        { direction: 'top', offset: [0, -14] }
+        `<div style="font-family:'Inter',sans-serif"><b>${stn.name}</b><br><span style="color:var(--text-muted);font-size:0.85em">${stn.subtitle}</span>` +
+        (stn.osmName ? `<br><i style="font-size:.8em;color:#94a3b8">${stn.osmName}</i>` : '') +
+        `<br><span style="font-size:.75em;color:#cbd5e1;margin-top:4px;display:block;">Stazione #${stn.id}</span></div>`,
+        { direction: 'top', offset: [0, -16], className: 'custom-tooltip' }
       );
     m.on('click', () => { loadStation(stn); openPanel(); });
     markerRefs[stn.id] = m;
@@ -685,11 +709,11 @@ async function loadStation(stn, silent = false) {
   currentId = stn.id; currentStnRef = stn;
   setActiveMarker(stn.id);
   document.getElementById('panel-title').textContent = stn.name;
-  document.getElementById('panel-subtitle').textContent = `${stn.subtitle} — #${stn.id}`;
+  document.getElementById('panel-subtitle').textContent = `${stn.subtitle} — Staz. ${stn.id}`;
   showBadge(true);
   if (!silent) {
     document.getElementById('sensor-tabs').style.display = 'none';
-    document.getElementById('panel-body').innerHTML = '<div class="loading"><div class="spinner"></div>Caricamento dati ARPAV...</div>';
+    document.getElementById('panel-body').innerHTML = '<div class="loading"><div class="spinner"></div>Recupero dati ARPAV...</div>';
     if (activeChart) { activeChart.destroy(); activeChart = null; }
   }
   try {
@@ -799,15 +823,15 @@ function renderSensor(stn, sensor) {
   const datasets = [{
     label: `${sensor.paramnm} (${unit})`, data: dataVals,
     borderColor: clr.border, backgroundColor: clr.fill,
-    borderWidth: 1.8, pointRadius: n > 100 ? 0 : 2.5, pointHoverRadius: 4,
-    tension: 0.25, fill: true, order: 10
+    borderWidth: 2, pointRadius: n > 100 ? 0 : 3, pointHoverRadius: 5,
+    tension: 0.3, fill: true, order: 10
   }];
   if (isLivello && soglie) {
     SOGLIA_CFG.forEach(c => datasets.push({
       label: `${c.label} – ${soglie[c.key].toFixed(2)} ${unit}`,
       data: Array(n).fill(soglie[c.key]),
       borderColor: c.color, backgroundColor: 'transparent',
-      borderWidth: 1.8, borderDash: [6, 4],
+      borderWidth: 2, borderDash: [6, 4],
       pointRadius: 0, pointHoverRadius: 0,
       fill: false, tension: 0, order: 1
     }));
@@ -836,12 +860,17 @@ function renderSensor(stn, sensor) {
       else if (r.val >= soglie.s2) tr.classList.add('over-s2');
       else if (r.val >= soglie.s1) tr.classList.add('over-s1');
     }
-    tr.innerHTML = `<td>${r.label}</td><td>${r.val.toFixed(3)}</td>`;
+    tr.innerHTML = `<td>${r.label}</td><td><strong>${r.val.toFixed(3)}</strong></td>`;
     tbody.appendChild(tr);
   });
 
   if (activeChart) activeChart.destroy();
   const ctx = document.getElementById('sensorChart').getContext('2d');
+  
+  // Custom font for chart
+  Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+  Chart.defaults.color = "#64748b";
+  
   activeChart = new Chart(ctx, {
     type: 'line',
     data: { labels, datasets },
@@ -853,18 +882,22 @@ function renderSensor(stn, sensor) {
           display: isLivello && !!soglie, position: 'bottom',
           labels: {
             filter: item => item.datasetIndex > 0,
-            boxWidth: 20, boxHeight: 0, padding: 6, font: { size: 10 },
+            boxWidth: 20, boxHeight: 0, padding: 8, font: { size: 11, weight: 500 },
             generateLabels: chart => chart.data.datasets
               .map((ds, i) => ({ text: ds.label, strokeStyle: ds.borderColor, fillStyle: 'transparent', lineWidth: 2, lineDash: [5, 3], datasetIndex: i, hidden: false }))
               .filter((_, i) => i > 0)
           }
         },
-        tooltip: { callbacks: { label: item => item.datasetIndex === 0 ? `${sensor.paramnm}: ${item.raw.toFixed(3)} ${unit}` : item.dataset.label } },
+        tooltip: {
+          backgroundColor: 'rgba(15, 23, 42, 0.9)', padding: 10, cornerRadius: 8,
+          titleFont: { size: 13 }, bodyFont: { size: 12 },
+          callbacks: { label: item => item.datasetIndex === 0 ? `${sensor.paramnm}: ${item.raw.toFixed(3)} ${unit}` : item.dataset.label }
+        },
         zoom: { zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }, pan: { enabled: true, mode: 'x' } }
       },
       scales: {
-        x: { ticks: { maxTicksLimit: 6, maxRotation: 0, font: { size: 9 } }, grid: { color: '#f0f0f0' } },
-        y: { min: yMin, max: yMax, title: { display: true, text: `(${unit})`, font: { size: 10 } }, grid: { color: '#f0f0f0' } }
+        x: { ticks: { maxTicksLimit: 6, maxRotation: 0, font: { size: 10 } }, grid: { color: '#f1f5f9' }, border: { display: false } },
+        y: { min: yMin, max: yMax, title: { display: true, text: `(${unit})`, font: { size: 10 } }, grid: { color: '#f1f5f9' }, border: { display: false } }
       }
     }
   });
@@ -892,9 +925,7 @@ function urlB64ToUint8Array(base64String) {
   const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
   const rawData = window.atob(base64);
   const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
+  for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
   return outputArray;
 }
 
@@ -906,23 +937,12 @@ async function subscribeUser() {
   }
   try {
     const swReg = await navigator.serviceWorker.ready;
-    const sub = await swReg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC)
-    });
-    console.log("Iscrizione ottenuta:", sub);
-    const response = await fetch(`${API_BASE}/api/subscribe`, {
-      method: 'POST',
-      body: JSON.stringify(sub),
-      headers: { 'Content-Type': 'application/json' }
-    });
-    if (response.ok) {
-      alert("Notifiche attivate con successo sul Raspberry!");
-    } else {
-      alert("Errore nell'invio al Raspberry: " + response.status);
-    }
+    const sub = await swReg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC) });
+    const response = await fetch(`${API_BASE}/api/subscribe`, { method: 'POST', body: JSON.stringify(sub), headers: { 'Content-Type': 'application/json' } });
+    if (response.ok) alert("Notifiche attivate con successo sul server!");
+    else alert("Errore nell'invio al server: " + response.status);
   } catch (err) {
-    console.error("Errore durante l'iscrizione:", err);
+    console.error("Errore iscrizione:", err);
     alert("Errore tecnico: " + err.message);
   }
 }
@@ -931,17 +951,16 @@ async function subscribeUser() {
 initMarkers();
 scheduleRefresh();
 
-// FIX: Service Worker registrato UNA SOLA VOLTA (era duplicato)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/PC_APP/sw.js')
-      .then(reg => console.log('Service Worker registrato!', reg))
+      .then(reg => console.log('Service Worker registrato!'))
       .catch(err => console.error('Errore registrazione SW:', err));
   });
 }
 
 // ── BARRA ALLERTA ─────────────────────────────────────────────────────────────
-const ALLERTA_COLORS = { VERDE: '#22c55e', GIALLO: '#eab308', ARANCIONE: '#f97316', ROSSO: '#ef4444' };
+const ALLERTA_COLORS = { VERDE: '#10b981', GIALLO: '#eab308', ARANCIONE: '#f97316', ROSSO: '#ef4444' };
 const ALLERTA_ORDER  = ['VERDE', 'GIALLO', 'ARANCIONE', 'ROSSO'];
 
 function allertaBgColor(idr, idro, temp) {
@@ -983,65 +1002,13 @@ async function loadAllerta() {
         <span class="livello" style="color:${ALLERTA_COLORS[d[r.key]] || '#64748b'}">${d[r.key] || '–'}</span>
       </div>`).join('');
 
-    // Aggiorna anche il map container per fare spazio alla barra
-    document.getElementById('map').style.height = 'calc(100% - 44px)';
-    map.invalidateSize();
+    setTimeout(() => map.invalidateSize(), 300);
   } catch(e) { console.log('Allerta non disponibile:', e.message); }
 }
 
 loadAllerta();
-setInterval(loadAllerta, 10 * 60 * 1000); // ricarica ogni 10 min
+setInterval(loadAllerta, 10 * 60 * 1000);
 
 </script>
-
-<button onclick="subscribeUser()" title="Attiva notifiche push"
-  style="position:fixed;bottom:22px;left:64px;z-index:500;
-         background:#fff;color:#0e8a8a;width:38px;height:38px;
-         border-radius:50%;border:2px solid #0e8a8a;
-         box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer;font-size:1.1rem;
-         display:flex;align-items:center;justify-content:center;">
-  &#x1F514;
-</button>
-
-<!-- Pulsante info -->
-<button id="btn-info-map" onclick="document.getElementById('info-modal').classList.add('open')" title="Informazioni">i</button>
-
-<!-- Modal info -->
-<div id="info-modal" onclick="if(event.target===this)this.classList.remove('open')">
-  <div id="info-box">
-    <button id="btn-close-info" onclick="document.getElementById('info-modal').classList.remove('open')">&#x2715;</button>
-    <h2>Informazioni sull'app</h2>
-
-    <h3>
-      <span class="info-area-badge" style="background:#166534">Attesa</span>
-      Area di attesa
-    </h3>
-    <p>Punto di raccolta sicuro per la popolazione in caso di evacuazione. Recati qui <strong>immediatamente</strong> se ricevi un'allerta di evacuazione dalla Protezione Civile o dalle autorità locali. Rimani in attesa di istruzioni.</p>
-
-    <h3>
-      <span class="info-area-badge" style="background:#991b1b">Ricovero</span>
-      Area di ricovero
-    </h3>
-    <p>Struttura attrezzata per ospitare la popolazione evacuata (tendopoli, palestre, strutture coperte). Raggiungi quest'area solo se indicato dalle autorità dopo la fase di attesa, o se hai bisogno di assistenza prolungata.</p>
-
-    <h3>
-      <span class="info-area-badge" style="background:#a16207">Ammassamento</span>
-      Area di ammassamento
-    </h3>
-    <p>Zona riservata ai soccorritori e ai mezzi di emergenza provenienti da fuori comune. <strong>Non è accessibile alla popolazione.</strong> Serve come base logistica per la gestione dell'emergenza.</p>
-
-    <h3>&#x1F4E1; Dati idrometrici ARPAV</h3>
-    <p>I livelli idrometrici e le precipitazioni sono forniti da <strong>ARPAV – Agenzia Regionale per la Prevenzione e Protezione Ambientale del Veneto</strong>, aggiornati ogni 30 minuti.</p>
-    <p>
-      <a href="https://www.arpa.veneto.it/dati-ambientali/dati-in-diretta/meteo-idro-nivo/pannello-meteo-segnalazioni" target="_blank">
-        &rarr; Dati idrometrici in diretta ARPAV
-      </a>
-    </p>
-
-    <h3>&#x1F5FA;&#xFE0F; Dati geografici</h3>
-    <p>Corsi d'acqua e aree di protezione civile sono caricati da <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> tramite Overpass API.</p>
-  </div>
-</div>
-
 </body>
 </html>
