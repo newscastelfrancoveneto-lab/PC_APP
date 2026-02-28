@@ -740,15 +740,6 @@ function toggleNotificationsMenu() {
   updateSubscribeButton();
 }
 
-
-const bc = new BroadcastChannel('notifications-channel');
-
-// 1. Ascolta i messaggi dal Service Worker
-bc.onmessage = (event) => {
-    saveNotification(event.data);
-    renderNotifications();
-};
-
 // 2. Funzione per salvare nel localStorage
 function saveNotification(notif) {
     let history = JSON.parse(localStorage.getItem('notif_history') || '[]');
@@ -780,6 +771,14 @@ function renderNotifications() {
 // Carica le notifiche salvate all'apertura del menu o al caricamento pagina
 document.addEventListener('DOMContentLoaded', renderNotifications);
 
+// ✅ CORRETTO: ascolta sempre, indipendentemente dal pannello
+const bc = new BroadcastChannel('notifications-channel');
+bc.onmessage = event => {
+  saveNotification(event.data);
+  renderNotifications();
+};
+
+	
 // Aggiorna visivamente il pulsante se l'utente ha già dato il permesso
 async function updateSubscribeButton() {
   const btn = document.getElementById('btn-subscribe-main');
