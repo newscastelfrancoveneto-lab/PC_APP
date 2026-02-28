@@ -710,6 +710,46 @@ function toggleNotificationsMenu() {
   updateSubscribeButton();
 }
 
+
+const bc = new BroadcastChannel('notifications-channel');
+
+// 1. Ascolta i messaggi dal Service Worker
+bc.onmessage = (event) => {
+    saveNotification(event.data);
+    renderNotifications();
+};
+
+// 2. Funzione per salvare nel localStorage
+function saveNotification(notif) {
+    let history = JSON.parse(localStorage.getItem('notif_history') || '[]');
+    history.unshift(notif); // Aggiunge in cima alla lista
+    // Teniamo solo le ultime 20 notifiche
+    if (history.length > 20) history.pop();
+    localStorage.setItem('notif_history', JSON.stringify(history));
+}
+
+// 3. Funzione per mostrare le notifiche nel menu
+function renderNotifications() {
+    const list = document.getElementById('notifications-list');
+    const history = JSON.parse(localStorage.getItem('notif_history') || '[]');
+    
+    if (history.length === 0) {
+        list.innerHTML = '<div class="notification-placeholder">Non ci sono nuove notifiche.</div>';
+        return;
+    }
+
+    list.innerHTML = history.map(n => `
+        <div class="notification-item">
+            <div class="notif-title">${n.title}</div>
+            <div class="notif-body">${n.body}</div>
+            <div class="notif-time">${n.timestamp}</div>
+        </div>
+    `).join('');
+}
+
+// Carica le notifiche salvate all'apertura del menu o al caricamento pagina
+document.addEventListener('DOMContentLoaded', renderNotifications);
+
 // Aggiorna visivamente il pulsante se l'utente ha già dato il permesso
 async function updateSubscribeButton() {
   const btn = document.getElementById('btn-subscribe-main');
