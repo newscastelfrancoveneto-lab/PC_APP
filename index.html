@@ -557,6 +557,30 @@ if ('serviceWorker' in navigator) {
     .catch(err => console.error('SW errore', err));
 }
 
+const VAPID_PUBLIC = 'BL97cSB4kCHu_Ym8nRAnpfJufIp7Tgk16mfGz872ra2Sv2UZsRyslne8aCFgWsf7iqzv5X3puK_GcLQWDmkkkuo';
+const API_BASE = 'https://grounds-promise-paradise-operator.trycloudflare.com';
+
+async function initPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    alert('Notifiche push non supportate su questo browser.');
+    return;
+  }
+  const reg  = await navigator.serviceWorker.register('/PC_APP/sw.js');
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') { alert('Permesso notifiche negato.'); return; }
+  const sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: VAPID_PUBLIC
+  });
+  const res = await fetch(API_BASE + '/api/subscribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(sub)
+  });
+  if (res.ok) alert('✅ Notifiche attivate!');
+  else alert('Errore durante l\'attivazione.');
+}
+	
 	
 async function initMarkers() {
   fetch('https://nominatim.openstreetmap.org/lookup?osm_type=R&osm_ids=45549&format=json&polygon_geojson=1')
@@ -802,6 +826,16 @@ function tickCountdown() {
 initMarkers();
 scheduleRefresh();
 </script>
+
+<button onclick="initPush()" title="Attiva notifiche push"
+  style="position:fixed;bottom:22px;left:64px;z-index:500;
+         background:#fff;color:#0e8a8a;width:38px;height:38px;
+         border-radius:50%;border:2px solid #0e8a8a;
+         box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer;font-size:1.1rem;
+         display:flex;align-items:center;justify-content:center;">
+  🔔
+</button>
+
 
 <!-- Pulsante info -->
 <button id="btn-info-map" onclick="document.getElementById('info-modal').classList.add('open')" title="Informazioni">i</button>
