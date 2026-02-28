@@ -1217,24 +1217,38 @@ function urlB64ToUint8Array(base64String) {
 }
 
 async function subscribeUser() {
-  if (!('serviceWorker' in navigator || !('PushManager' in window))) {
+  // 1. Corretta la logica delle parentesi per il controllo del supporto
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     console.log('Push non supportato');
     return;
   }
 
   try {
+    // 2. Chiediamo subito il permesso per un feedback UI immediato
+    const permission = await Notification.requestPermission();
+    
+    // Aggiorniamo il bottone se l'utente blocca subito la richiesta
+    if (permission !== 'granted') {
+      updateSubscribeButton();
+      return;
+    }
+
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPIDPUBLIC)
+      // 3. Corretti i due typo: urlB64ToUint8Array e VAPID_PUBLIC
+      applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC)
     });
 
-    // ... il tuo codice per inviare subscription al server ...
+    // ... qui andrà il tuo codice per inviare la subscription al server ...
 
-    // ✅ AGGIUNGI QUI:
+    // 4. Ora questa riga verrà raggiunta con successo!
     updateSubscribeButton();
+    
   } catch (err) {
     console.error('Errore subscription', err);
+    // Aggiorniamo il bottone anche in caso di errore per mostrare lo stato reale
+    updateSubscribeButton();
   }
 }
 
