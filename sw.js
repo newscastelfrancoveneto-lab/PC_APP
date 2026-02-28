@@ -45,3 +45,22 @@ async function saveAndBroadcastNotification(data) {
     // Invia alla pagina HTML
     channel.postMessage(newNotif);
 }
+
+// In sw.js — aggiungi salvataggio in IndexedDB
+async function saveAndBroadcastNotification(data) {
+  const notif = {
+    title: data.title,
+    body: data.body,
+    timestamp: new Date().toLocaleString('it-IT')
+  };
+
+  // 1. Salva in IndexedDB
+  const db = await openDB();
+  const tx = db.transaction('notifications', 'readwrite');
+  tx.objectStore('notifications').add(notif);
+
+  // 2. Broadcast alla pagina (se aperta)
+  const channel = new BroadcastChannel('notifications-channel');
+  channel.postMessage(notif);
+}
+
