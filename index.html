@@ -454,22 +454,25 @@
 
 	<div id="notifications-menu" class="side-panel">
 	  <div class="side-panel-header">
-		<h3>Notifiche</h3>
-		<button class="close-side-panel" onclick="toggleNotificationsMenu()">✕</button>
+	    <h3>Notifiche</h3>
+	    <div>
+	      <button onclick="clearNotifications()" 
+	              style="background:none;border:none;color:white;font-size:0.8rem;margin-right:8px;cursor:pointer;">
+	        Svuota
+	      </button>
+	      <button class="close-side-panel" onclick="toggleNotificationsMenu()">×</button>
+	    </div>
 	  </div>
-	  
 	  <div class="side-panel-body">
-		<button id="btn-subscribe-main" onclick="subscribeUser()" class="btn-rect-rounded">
-		  Attiva Notifiche Push
-		</button>
-		
-		<div class="notifications-list" id="notifications-list">
-		  <div class="notification-placeholder">
-			Non ci sono nuove notifiche.
-		  </div>
-		</div>
+	    <button id="btn-subscribe-main" onclick="subscribeUser()" class="btn-rect-rounded">
+	      Attiva Notifiche Push
+	    </button>
+	    <div class="notifications-list" id="notifications-list">
+	      <div class="notification-placeholder">Non ci sono nuove notifiche.</div>
+	    </div>
 	  </div>
 	</div>
+
 	
     <button onclick="document.getElementById('info-modal').classList.add('open')" class="fab-btn" title="Informazioni">i</button>
   </div>
