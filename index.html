@@ -7,7 +7,7 @@
 
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>ARPAV & Aree Protezione Civile – Castelfranco Veneto</title>
+  <title>ARPAV &amp; Aree Protezione Civile – Castelfranco Veneto</title>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -121,7 +121,6 @@
     }
     .stn-marker.active { border: 3px solid #fff; }
 
-    /* ── Layer switcher unificato ── */
     .layer-control {
       background: white; padding: 10px 12px; border-radius: 8px;
       font-family: 'Segoe UI', system-ui, Arial, sans-serif;
@@ -175,47 +174,44 @@
       .chart-wrap { height: 175px; }
       .data-table { font-size: .72rem; }
     }
-	
-	/* ── Modal info ── */
-	#info-modal {
-	  display: none; position: fixed; inset: 0; z-index: 9999;
-	  background: rgba(0,0,0,.45); align-items: center; justify-content: center;
-	}
-	#info-modal.open { display: flex; }
-	#info-box {
-	  background: #fff; border-radius: 12px; padding: 22px 24px;
-	  max-width: 420px; width: 90%; max-height: 85vh; overflow-y: auto;
-	  box-shadow: 0 8px 32px rgba(0,0,0,.25); position: relative;
-	  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
-	}
-	#info-box h2 { font-size: 1rem; color: #0e8a8a; margin-bottom: 14px; }
-	#info-box h3 { font-size: .82rem; font-weight: 700; color: #1e293b; margin: 12px 0 4px; display: flex; align-items: center; gap: 6px; }
-	#info-box p  { font-size: .78rem; color: #444; line-height: 1.6; margin-bottom: 6px; }
-	#info-box a  { color: #0e8a8a; font-weight: 600; }
-	.info-area-badge {
-	  display: inline-block; border-radius: 4px; padding: 2px 7px;
-	  font-size: .7rem; font-weight: 700; color: #fff; margin-right: 4px;
-	}
-	#btn-close-info {
-	  position: absolute; top: 12px; right: 14px;
-	  background: #f1f5f9; border: none; border-radius: 50%;
-	  width: 28px; height: 28px; font-size: 1rem; cursor: pointer;
-	  display: flex; align-items: center; justify-content: center; color: #475569;
-	}
-	#btn-close-info:hover { background: #e2e8f0; }
 
-	/* ── Pulsante info sulla mappa ── */
-	#btn-info-map {
-	  position: fixed; bottom: 22px; left: 18px; z-index: 500;
-	  background: #fff; color: #0e8a8a; width: 38px; height: 38px;
-	  border-radius: 50%; border: 2px solid #0e8a8a;
-	  box-shadow: 0 2px 8px rgba(0,0,0,.2);
-	  cursor: pointer; font-size: 1rem; font-weight: 700;
-	  display: flex; align-items: center; justify-content: center;
-	}
-	#btn-info-map:hover { background: #0e8a8a; color: #fff; }
+    /* ── Modal info ── */
+    #info-modal {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0,0,0,.45); align-items: center; justify-content: center;
+    }
+    #info-modal.open { display: flex; }
+    #info-box {
+      background: #fff; border-radius: 12px; padding: 22px 24px;
+      max-width: 420px; width: 90%; max-height: 85vh; overflow-y: auto;
+      box-shadow: 0 8px 32px rgba(0,0,0,.25); position: relative;
+      font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+    }
+    #info-box h2 { font-size: 1rem; color: #0e8a8a; margin-bottom: 14px; }
+    #info-box h3 { font-size: .82rem; font-weight: 700; color: #1e293b; margin: 12px 0 4px; display: flex; align-items: center; gap: 6px; }
+    #info-box p  { font-size: .78rem; color: #444; line-height: 1.6; margin-bottom: 6px; }
+    #info-box a  { color: #0e8a8a; font-weight: 600; }
+    .info-area-badge {
+      display: inline-block; border-radius: 4px; padding: 2px 7px;
+      font-size: .7rem; font-weight: 700; color: #fff; margin-right: 4px;
+    }
+    #btn-close-info {
+      position: absolute; top: 12px; right: 14px;
+      background: #f1f5f9; border: none; border-radius: 50%;
+      width: 28px; height: 28px; font-size: 1rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; color: #475569;
+    }
+    #btn-close-info:hover { background: #e2e8f0; }
 
-	
+    #btn-info-map {
+      position: fixed; bottom: 22px; left: 18px; z-index: 500;
+      background: #fff; color: #0e8a8a; width: 38px; height: 38px;
+      border-radius: 50%; border: 2px solid #0e8a8a;
+      box-shadow: 0 2px 8px rgba(0,0,0,.2);
+      cursor: pointer; font-size: 1rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #btn-info-map:hover { background: #0e8a8a; color: #fff; }
   </style>
 </head>
 <body>
@@ -281,6 +277,10 @@ const PROXY    = 'https://corsproxy.io/?';
 const XML_URL  = 'https://www.arpa.veneto.it/api/risorse/data-meteo/xml/Ultime48ore.xml';
 const CSV_BASE = 'https://meteo.arpa.veneto.it/meteo/dati_meteo/xml/';
 const OSM_API  = 'https://api.openstreetmap.org/api/0.6/node/';
+
+// FIX: dichiarate UNA SOLA VOLTA (erano duplicate)
+const VAPID_PUBLIC = 'BHE0353MlqN8My2C-hhYQsC0XXD3QXAuIGnkf-BzCQaeV-I1sLVWlb_rT-C3Q9BJy6wVVSSWtQRsbO_iRRLEQsc';
+const API_BASE = 'https://grounds-promise-paradise-operator.trycloudflare.com';
 
 let activeChart = null, currentId = null, currentSensors = [];
 let currentStnRef = null, nextRefresh = null;
@@ -551,37 +551,6 @@ function setActiveMarker(id) {
   STATIONS.forEach(s => markerRefs[s.id]?.setIcon(buildIcon(s, s.id === id)));
 }
 
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/PC_APP/sw.js')
-    .then(reg => console.log('SW registrato', reg))
-    .catch(err => console.error('SW errore', err));
-}
-
-const VAPID_PUBLIC = 'BHE0353MlqN8My2C-hhYQsC0XXD3QXAuIGnkf-BzCQaeV-I1sLVWlb_rT-C3Q9BJy6wVVSSWtQRsbO_iRRLEQsc';
-const API_BASE = 'https://grounds-promise-paradise-operator.trycloudflare.com';
-
-async function initPush() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    alert('Notifiche push non supportate su questo browser.');
-    return;
-  }
-  const reg  = await navigator.serviceWorker.register('/PC_APP/sw.js');
-  const perm = await Notification.requestPermission();
-  if (perm !== 'granted') { alert('Permesso notifiche negato.'); return; }
-  const sub = await reg.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: VAPID_PUBLIC
-  });
-  const res = await fetch(API_BASE + '/api/subscribe', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(sub)
-  });
-  if (res.ok) alert('✅ Notifiche attivate!');
-  else alert('Errore durante l\'attivazione.');
-}
-	
-	
 async function initMarkers() {
   fetch('https://nominatim.openstreetmap.org/lookup?osm_type=R&osm_ids=45549&format=json&polygon_geojson=1')
     .then(r => r.json()).then(arr => {
@@ -822,48 +791,36 @@ function tickCountdown() {
   else { setTimeout(tickCountdown, 1000); }
 }
 
-// ── INIT ──────────────────────────────────────────────────────────────────────
-initMarkers();
-scheduleRefresh();
-
-// Registra il Service Worker all'avvio
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/PC_APP/sw.js')
-      .then(reg => console.log('Service Worker registrato!', reg))
-      .catch(err => console.error('Errore registrazione SW:', err));
-  });
+// ── NOTIFICHE PUSH ────────────────────────────────────────────────────────────
+function urlB64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
 }
 
-const VAPID_PUBLIC = 'BHE0353MlqN8My2C-hhYQsC0XXD3QXAuIGnkf-BzCQaeV-I1sLVWlb_rT-C3Q9BJy6wVVSSWtQRsbO_iRRLEQsc';
-const API_BASE = 'https://grounds-promise-paradise-operator.trycloudflare.com';
-
 async function subscribeUser() {
-  // 1. Chiedi il permesso all'utente
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') {
     alert("Devi autorizzare le notifiche per riceverle.");
     return;
   }
-
   try {
     const swReg = await navigator.serviceWorker.ready;
-    
-    // 2. Crea la sottoscrizione col server Push del browser
     const sub = await swReg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC)
     });
-
     console.log("Iscrizione ottenuta:", sub);
-
-    // 3. Invia la sottoscrizione al tuo Raspberry Pi
     const response = await fetch(`${API_BASE}/api/subscribe`, {
       method: 'POST',
       body: JSON.stringify(sub),
       headers: { 'Content-Type': 'application/json' }
     });
-
     if (response.ok) {
       alert("Notifiche attivate con successo sul Raspberry!");
     } else {
@@ -875,16 +832,17 @@ async function subscribeUser() {
   }
 }
 
-// Funzione di utilità per convertire la chiave VAPID
-function urlB64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
+// ── INIT ──────────────────────────────────────────────────────────────────────
+initMarkers();
+scheduleRefresh();
+
+// FIX: Service Worker registrato UNA SOLA VOLTA (era duplicato)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/PC_APP/sw.js')
+      .then(reg => console.log('Service Worker registrato!', reg))
+      .catch(err => console.error('Errore registrazione SW:', err));
+  });
 }
 </script>
 
@@ -894,9 +852,8 @@ function urlB64ToUint8Array(base64String) {
          border-radius:50%;border:2px solid #0e8a8a;
          box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer;font-size:1.1rem;
          display:flex;align-items:center;justify-content:center;">
-  🔔
+  &#x1F514;
 </button>
-
 
 <!-- Pulsante info -->
 <button id="btn-info-map" onclick="document.getElementById('info-modal').classList.add('open')" title="Informazioni">i</button>
@@ -925,19 +882,18 @@ function urlB64ToUint8Array(base64String) {
     </h3>
     <p>Zona riservata ai soccorritori e ai mezzi di emergenza provenienti da fuori comune. <strong>Non è accessibile alla popolazione.</strong> Serve come base logistica per la gestione dell'emergenza.</p>
 
-    <h3>📡 Dati idrometrici ARPAV</h3>
+    <h3>&#x1F4E1; Dati idrometrici ARPAV</h3>
     <p>I livelli idrometrici e le precipitazioni sono forniti da <strong>ARPAV – Agenzia Regionale per la Prevenzione e Protezione Ambientale del Veneto</strong>, aggiornati ogni 30 minuti.</p>
     <p>
       <a href="https://www.arpa.veneto.it/dati-ambientali/dati-in-diretta/meteo-idro-nivo/pannello-meteo-segnalazioni" target="_blank">
-        → Dati idrometrici in diretta ARPAV
+        &rarr; Dati idrometrici in diretta ARPAV
       </a>
     </p>
 
-    <h3>🗺️ Dati geografici</h3>
+    <h3>&#x1F5FA;&#xFE0F; Dati geografici</h3>
     <p>Corsi d'acqua e aree di protezione civile sono caricati da <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> tramite Overpass API.</p>
   </div>
 </div>
-
 
 </body>
 </html>
