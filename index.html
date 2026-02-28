@@ -1217,12 +1217,14 @@ function urlB64ToUint8Array(base64String) {
 }
 
 async function subscribeUser() {
+  // Controlla se il browser supporta le notifiche push
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     console.log('Push non supportato');
     return;
   }
 
   try {
+    // Richiede il permesso all'utente
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
       updateSubscribeButton();
@@ -1230,32 +1232,33 @@ async function subscribeUser() {
     }
 
     const registration = await navigator.serviceWorker.ready;
+    
+    // Crea la sottoscrizione usando le costanti globali VAPID_PUBLIC e urlB64ToUint8Array
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC)
     });
 
-    //  IL PEZZO MANCANTE: Invia la subscription al tuo server
-    // Assicurati che l'endpoint '/api/subscribe' sia quello corretto del tuo backend!
+    // Invia la sottoscrizione al tuo server usando la costante API_BASE
     const response = await fetch(API_BASE + '/api/subscribe', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(subscription) // Inviamo l'oggetto convertito in JSON
+      body: JSON.stringify(subscription)
     });
 
     if (!response.ok) {
-      throw new Error('Salvataggio sul server fallito con status: ' + response.status);
+      throw new Error('Salvataggio sul server fallito: ' + response.status);
     }
 
-    console.log('Dispositivo iscritto con successo sul server!');
+    console.log('Dispositivo registrato con successo!');
     
-    // Aggiorna il pulsante solo se tutto è andato a buon fine
+    // Aggiorna lo stato del pulsante nel menu
     updateSubscribeButton();
     
   } catch (err) {
-    console.error('Errore subscription:', err);
+    console.error('Errore durante l\'attivazione delle notifiche:', err);
     updateSubscribeButton();
   }
 }
