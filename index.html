@@ -761,12 +761,12 @@ function toggleNotificationsMenu() {
 
 // 2. Funzione per salvare nel localStorage
 function saveNotification(notif) {
-    let history = JSON.parse(localStorage.getItem('notif_history') || '[]');
-    history.unshift(notif); // Aggiunge in cima alla lista
-    // Teniamo solo le ultime 20 notifiche
-    if (history.length > 20) history.pop();
-    localStorage.setItem('notif_history', JSON.stringify(history));
+  let history = JSON.parse(localStorage.getItem('notifhistory') || '[]');
+  history.unshift(notif);
+  if (history.length > 20) history.pop();
+  localStorage.setItem('notifhistory', JSON.stringify(history));
 }
+
 
 // 3. Funzione per mostrare le notifiche nel menu
 function renderNotifications() {
@@ -826,22 +826,6 @@ async function updateSubscribeButton() {
     btn.style.background = '#166534'; // Verde scuro
     btn.style.opacity = '0.8';
   }
-}
-
-// (Facoltativo) Funzione per aggiungere una notifica alla lista nel menu
-function addNotificationToMenu(title, message, time) {
-  const list = document.getElementById('notifications-list');
-  const placeholder = list.querySelector('.notification-placeholder');
-  if (placeholder) placeholder.remove();
-
-  const item = document.createElement('div');
-  item.style.cssText = "background:#f8fafc; padding:12px; border-radius:8px; border-left:4px solid var(--primary);";
-  item.innerHTML = `
-    <div style="font-weight:700; font-size:0.85rem; margin-bottom:4px;">${title}</div>
-    <div style="font-size:0.8rem; color:var(--text-muted); line-height:1.4;">${message}</div>
-    <div style="font-size:0.7rem; color:#94a3b8; margin-top:6px;">${time}</div>
-  `;
-  list.prepend(item);
 }
 
 // ── LAYER SWITCHER UNIFICATO (CUSTOM COLLAPSIBLE) ─────────────────────────────
