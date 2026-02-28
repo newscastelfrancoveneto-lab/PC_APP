@@ -212,11 +212,106 @@
       display: flex; align-items: center; justify-content: center;
     }
     #btn-info-map:hover { background: #0e8a8a; color: #fff; }
+
+    /* ── Barra Allerta ── */
+    #allerta-bar {
+      display: none; position: relative; z-index: 100;
+      padding: 8px 14px; cursor: pointer;
+      flex-shrink: 0; transition: background .3s;
+    }
+    #allerta-bar.visible { display: flex; align-items: center; gap: 10px; }
+    #allerta-bar-inner { display: flex; align-items: center; gap: 10px; flex: 1; flex-wrap: wrap; }
+    .allerta-bollino-wrap { display: flex; align-items: center; gap: 5px; font-size: .78rem; font-weight: 600; color: #fff; }
+    .allerta-bollino { width: 18px; height: 18px; border-radius: 50%; border: 2px solid rgba(255,255,255,.7); flex-shrink: 0; }
+    #allerta-bar-title { font-size: .8rem; font-weight: 700; color: #fff; opacity: .9; margin-left: auto; white-space: nowrap; }
+    #allerta-bar-chevron { color: rgba(255,255,255,.8); font-size: .9rem; flex-shrink: 0; }
+
+    /* ── Modal Allerta ── */
+    #allerta-modal {
+      display: none; position: fixed; inset: 0; z-index: 9998;
+      background: rgba(0,0,0,.5); align-items: flex-end; justify-content: center;
+    }
+    #allerta-modal.open { display: flex; }
+    #allerta-box {
+      background: #fff; border-radius: 16px 16px 0 0; padding: 22px 20px 30px;
+      width: 100%; max-width: 540px; max-height: 85vh; overflow-y: auto;
+      box-shadow: 0 -4px 24px rgba(0,0,0,.2);
+      font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+      animation: slideUp .25s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    #allerta-box .drag-handle {
+      width: 36px; height: 4px; background: #cbd5e1; border-radius: 2px;
+      margin: 0 auto 16px;
+    }
+    #allerta-box h2 { font-size: .95rem; color: #1e293b; margin-bottom: 4px; }
+    #allerta-box .periodo { font-size: .75rem; color: #64748b; margin-bottom: 14px; }
+    .allerta-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border-radius: 8px; margin-bottom: 6px;
+      background: #f8fafc; border: 1px solid #e2e8f0;
+    }
+    .allerta-row .bollino-lg { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; }
+    .allerta-row .label { font-size: .8rem; font-weight: 600; color: #334155; }
+    .allerta-row .livello { font-size: .8rem; font-weight: 700; margin-left: auto; }
+    .allerta-section-title {
+      font-size: .72rem; font-weight: 700; text-transform: uppercase;
+      color: #94a3b8; letter-spacing: .05em; margin: 14px 0 6px;
+    }
+    .allerta-section-body {
+      font-size: .78rem; color: #475569; line-height: 1.6;
+      background: #f8fafc; border-radius: 8px; padding: 10px 12px;
+      border: 1px solid #e2e8f0; white-space: pre-wrap;
+    }
+    #btn-close-allerta {
+      position: absolute; top: 14px; right: 16px;
+      background: #f1f5f9; border: none; border-radius: 50%;
+      width: 28px; height: 28px; font-size: 1rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; color: #475569;
+    }
+    #btn-close-allerta:hover { background: #e2e8f0; }
+
   </style>
 </head>
 <body>
 
 <div id="app">
+
+<!-- Barra Allerta -->
+<div id="allerta-bar" onclick="document.getElementById('allerta-modal').classList.add('open')">
+  <div id="allerta-bar-inner">
+    <div class="allerta-bollino-wrap">
+      <div class="allerta-bollino" id="bar-bollino-idr"></div>
+      <span id="bar-label-idr">Idraulico</span>
+    </div>
+    <div class="allerta-bollino-wrap">
+      <div class="allerta-bollino" id="bar-bollino-idro"></div>
+      <span id="bar-label-idro">Idrogeologico</span>
+    </div>
+    <div class="allerta-bollino-wrap">
+      <div class="allerta-bollino" id="bar-bollino-temp"></div>
+      <span id="bar-label-temp">Temporali</span>
+    </div>
+  </div>
+  <span id="allerta-bar-title">Allerta ARPAV</span>
+  <span id="allerta-bar-chevron">▲</span>
+</div>
+
+<!-- Modal Allerta -->
+<div id="allerta-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div id="allerta-box" style="position:relative">
+    <div class="drag-handle"></div>
+    <button id="btn-close-allerta" onclick="document.getElementById('allerta-modal').classList.remove('open')">&#x2715;</button>
+    <h2>⚠️ Bollettino di Allerta Meteo</h2>
+    <div class="periodo" id="allerta-periodo">—</div>
+    <div id="allerta-rows"></div>
+    <div class="allerta-section-title">📋 Previsione Meteo</div>
+    <div class="allerta-section-body" id="allerta-meteo">—</div>
+    <div class="allerta-section-title">🌍 Effetti al Suolo</div>
+    <div class="allerta-section-body" id="allerta-suolo">—</div>
+  </div>
+</div>
+
   <div id="map"></div>
 
   <div id="panel" class="hidden-desktop">
@@ -280,7 +375,7 @@ const OSM_API  = 'https://api.openstreetmap.org/api/0.6/node/';
 
 // FIX: dichiarate UNA SOLA VOLTA (erano duplicate)
 const VAPID_PUBLIC = 'BHE0353MlqN8My2C-hhYQsC0XXD3QXAuIGnkf-BzCQaeV-I1sLVWlb_rT-C3Q9BJy6wVVSSWtQRsbO_iRRLEQsc';
-const API_BASE = '';
+const API_BASE = 'https://proven-sealed-allocated-recommend.trycloudflare.com';
 
 let activeChart = null, currentId = null, currentSensors = [];
 let currentStnRef = null, nextRefresh = null;
@@ -844,6 +939,59 @@ if ('serviceWorker' in navigator) {
       .catch(err => console.error('Errore registrazione SW:', err));
   });
 }
+
+// ── BARRA ALLERTA ─────────────────────────────────────────────────────────────
+const ALLERTA_COLORS = { VERDE: '#22c55e', GIALLO: '#eab308', ARANCIONE: '#f97316', ROSSO: '#ef4444' };
+const ALLERTA_ORDER  = ['VERDE', 'GIALLO', 'ARANCIONE', 'ROSSO'];
+
+function allertaBgColor(idr, idro, temp) {
+  const max = [idr, idro, temp].reduce((a, b) => ALLERTA_ORDER.indexOf(b) > ALLERTA_ORDER.indexOf(a) ? b : a, 'VERDE');
+  return ALLERTA_COLORS[max] || '#64748b';
+}
+
+async function loadAllerta() {
+  try {
+    const res = await fetch(API_BASE + '/api/allerta');
+    if (!res.ok) return;
+    const d = await res.json();
+    if (!d || !d.idr) return;
+
+    const bar = document.getElementById('allerta-bar');
+    bar.classList.add('visible');
+    bar.style.background = allertaBgColor(d.idr, d.idro, d.temp);
+
+    ['idr','idro','temp'].forEach(k => {
+      const el = document.getElementById('bar-bollino-' + k);
+      const lbl = document.getElementById('bar-label-' + k);
+      if (el) el.style.background = ALLERTA_COLORS[d[k]] || '#64748b';
+      if (lbl) lbl.textContent = ({ idr: 'Idraulico', idro: 'Idrogeologico', temp: 'Temporali' })[k] + ': ' + (d[k] || '–');
+    });
+
+    document.getElementById('allerta-periodo').textContent = d.periodo || '—';
+    document.getElementById('allerta-meteo').textContent   = d.meteo   || '—';
+    document.getElementById('allerta-suolo').textContent   = d.suolo   || '—';
+
+    const rowsEl = document.getElementById('allerta-rows');
+    rowsEl.innerHTML = [
+      { key: 'idr',  label: 'Rischio Idraulico' },
+      { key: 'idro', label: 'Rischio Idrogeologico' },
+      { key: 'temp', label: 'Rischio Idrogeologico per Temporali' }
+    ].map(r => `
+      <div class="allerta-row">
+        <div class="bollino-lg" style="background:${ALLERTA_COLORS[d[r.key]] || '#64748b'}"></div>
+        <span class="label">${r.label}</span>
+        <span class="livello" style="color:${ALLERTA_COLORS[d[r.key]] || '#64748b'}">${d[r.key] || '–'}</span>
+      </div>`).join('');
+
+    // Aggiorna anche il map container per fare spazio alla barra
+    document.getElementById('map').style.height = 'calc(100% - 44px)';
+    map.invalidateSize();
+  } catch(e) { console.log('Allerta non disponibile:', e.message); }
+}
+
+loadAllerta();
+setInterval(loadAllerta, 10 * 60 * 1000); // ricarica ogni 10 min
+
 </script>
 
 <button onclick="subscribeUser()" title="Attiva notifiche push"
