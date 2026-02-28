@@ -813,6 +813,7 @@ const bc = new BroadcastChannel('notifications-channel');
 bc.onmessage = event => {
   saveNotification(event.data);
   renderNotifications();
+  loadAllerta();
 };
 
 	
