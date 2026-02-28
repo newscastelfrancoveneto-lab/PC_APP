@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Console Admin - PC Castelfranco</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f0f4f8; }
+        .card { background: white; padding: 20px; border-radius: 8px; max-width: 500px; margin: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        input, textarea { width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        button { background: #0e8a8a; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; width: 100%; }
+        button:hover { background: #0b6b6b; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>Invia Notifica Allerta</h2>
+        <input type="text" id="title" placeholder="Titolo (es: Allerta Meteo)">
+        <textarea id="body" rows="4" placeholder="Messaggio (es: Previste forti piogge...)"></textarea>
+        <button onclick="send()">Invia a tutti i dispositivi</button>
+        <p id="status"></p>
+    </div>
+
+    <script>
+        async function send() {
+            const title = document.getElementById('title').value;
+            const body = document.getElementById('body').value;
+            const status = document.getElementById('status');
+            
+            status.innerText = "Invio in corso...";
+            
+            try {
+                const res = await fetch('/api/sendNotification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, body })
+                });
+                const data = await res.json();
+                status.innerText = "Risultato: " + data.message;
+            } catch (e) {
+                status.innerText = "Errore durante l'invio.";
+            }
+        }
+    </script>
+</body>
+</html>
