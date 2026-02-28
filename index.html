@@ -808,12 +808,23 @@ function clearNotifications() {
 // Carica le notifiche salvate all'apertura del menu o al caricamento pagina
 document.addEventListener('DOMContentLoaded', renderNotifications);
 
-// ✅ CORRETTO: ascolta sempre, indipendentemente dal pannello
 const bc = new BroadcastChannel('notifications-channel');
 bc.onmessage = event => {
+  console.log('Notifica ricevuta in tempo reale:', event.data);
+  
+  // 1. Salva e mostra la notifica nel centro notifiche
   saveNotification(event.data);
   renderNotifications();
-  loadAllerta();
+
+  // 2. Aggiorna la barra delle allerte e il sottomenu
+  // Usiamo un piccolo ritardo (1 secondo) per essere sicuri che 
+  // il server abbia finito di aggiornare il file JSON sul disco
+  setTimeout(() => {
+    if (typeof loadAllerta === 'function') {
+      loadAllerta();
+      console.log('Barra allerte aggiornata con i nuovi dati!');
+    }
+  }, 1000); 
 };
 
 	
