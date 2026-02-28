@@ -19,6 +19,22 @@
   <style>
 
 
+	  .btn-clear-notifs {
+		  padding: 6px 10px;
+		  font-size: 0.8rem;
+		  border-radius: 999px;
+		  border: 1px solid rgba(255,255,255,0.7);
+		  background: rgba(255,255,255,0.12);
+		  color: #ffffff;
+		  cursor: pointer;
+		}
+		
+		.btn-clear-notifs:hover {
+		  background: rgba(255,255,255,0.22);
+		}
+
+
+
 	.notification-item {
     background: #ffffff;
     padding: 12px;
@@ -452,26 +468,26 @@
     
 	<button onclick="toggleNotificationsMenu()" class="fab-btn" title="Notifiche">🔔</button>
 
-	<div id="notifications-menu" class="side-panel">
-	  <div class="side-panel-header">
-	    <h3>Notifiche</h3>
-	    <div>
-	      <button onclick="clearNotifications()" 
-	              style="background:none;border:none;color:white;font-size:0.8rem;margin-right:8px;cursor:pointer;">
-	        Svuota
-	      </button>
-	      <button class="close-side-panel" onclick="toggleNotificationsMenu()">×</button>
-	    </div>
-	  </div>
-	  <div class="side-panel-body">
-	    <button id="btn-subscribe-main" onclick="subscribeUser()" class="btn-rect-rounded">
-	      Attiva Notifiche Push
-	    </button>
-	    <div class="notifications-list" id="notifications-list">
-	      <div class="notification-placeholder">Non ci sono nuove notifiche.</div>
-	    </div>
-	  </div>
-	</div>
+<div id="notifications-menu" class="side-panel">
+  <div class="side-panel-header">
+    <h3>Notifiche</h3>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <button onclick="clearNotifications()" class="btn-clear-notifs">
+        Svuota
+      </button>
+      <button class="close-side-panel" onclick="toggleNotificationsMenu()">×</button>
+    </div>
+  </div>
+  <div class="side-panel-body">
+    <button id="btn-subscribe-main" onclick="subscribeUser()" class="btn-rect-rounded">
+      Attiva Notifiche Push
+    </button>
+    <div class="notifications-list" id="notifications-list">
+      <div class="notification-placeholder">Non ci sono nuove notifiche.</div>
+    </div>
+  </div>
+</div>
+
 
 	
     <button onclick="document.getElementById('info-modal').classList.add('open')" class="fab-btn" title="Informazioni">i</button>
