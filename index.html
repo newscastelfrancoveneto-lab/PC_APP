@@ -820,13 +820,20 @@ bc.onmessage = event => {
 async function updateSubscribeButton() {
   const btn = document.getElementById('btn-subscribe-main');
   if (!('Notification' in window)) return;
-  
+
   if (Notification.permission === 'granted') {
-    btn.textContent = 'Notifiche Attive ✓';
-    btn.style.background = '#166534'; // Verde scuro
+    btn.textContent = 'Notifiche Attive';
+    btn.style.background = '#166534';
     btn.style.opacity = '0.8';
+  } else if (Notification.permission === 'denied') {
+    btn.textContent = 'Notifiche Bloccate';
+    btn.style.background = '#dc2626';
+  } else {
+    btn.textContent = 'Attiva Notifiche Push';
+    btn.style.background = 'var(--primary)';
   }
 }
+
 
 // ── LAYER SWITCHER UNIFICATO (CUSTOM COLLAPSIBLE) ─────────────────────────────
 
