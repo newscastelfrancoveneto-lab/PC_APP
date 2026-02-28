@@ -771,6 +771,11 @@ function renderNotifications() {
     `).join('');
 }
 
+function clearNotifications() {
+  localStorage.removeItem('notifhistory');
+  renderNotifications();
+}
+
 // Carica le notifiche salvate all'apertura del menu o al caricamento pagina
 document.addEventListener('DOMContentLoaded', renderNotifications);
 
