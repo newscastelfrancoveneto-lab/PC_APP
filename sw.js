@@ -4,7 +4,6 @@ self.addEventListener('push', e => {
     body: d.body || '',
     tag:  d.tag  || 'arpav',
     icon: '/PC_APP/icon-192.png',
-    badge: '/PC_APP/icon-192.png',
     vibrate: [200, 100, 200]
   }));
 });
