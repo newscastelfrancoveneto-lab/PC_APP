@@ -825,9 +825,70 @@ function tickCountdown() {
 // ── INIT ──────────────────────────────────────────────────────────────────────
 initMarkers();
 scheduleRefresh();
+
+// Registra il Service Worker all'avvio
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/PC_APP/sw.js')
+      .then(reg => console.log('Service Worker registrato!', reg))
+      .catch(err => console.error('Errore registrazione SW:', err));
+  });
+}
+
+const VAPID_PUBLIC = 'BHE0353MlqN8My2C-hhYQsC0XXD3QXAuIGnkf-BzCQaeV-I1sLVWlb_rT-C3Q9BJy6wVVSSWtQRsbO_iRRLEQsc';
+const API_BASE = 'https://grounds-promise-paradise-operator.trycloudflare.com';
+
+async function subscribeUser() {
+  // 1. Chiedi il permesso all'utente
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') {
+    alert("Devi autorizzare le notifiche per riceverle.");
+    return;
+  }
+
+  try {
+    const swReg = await navigator.serviceWorker.ready;
+    
+    // 2. Crea la sottoscrizione col server Push del browser
+    const sub = await swReg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC)
+    });
+
+    console.log("Iscrizione ottenuta:", sub);
+
+    // 3. Invia la sottoscrizione al tuo Raspberry Pi
+    const response = await fetch(`${API_BASE}/api/subscribe`, {
+      method: 'POST',
+      body: JSON.stringify(sub),
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (response.ok) {
+      alert("Notifiche attivate con successo sul Raspberry!");
+    } else {
+      alert("Errore nell'invio al Raspberry: " + response.status);
+    }
+  } catch (err) {
+    console.error("Errore durante l'iscrizione:", err);
+    alert("Errore tecnico: " + err.message);
+  }
+}
+
+// Funzione di utilità per convertire la chiave VAPID
+function urlB64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
 </script>
 
-<button onclick="initPush()" title="Attiva notifiche push"
+<button onclick="subscribeUser()" title="Attiva notifiche push"
   style="position:fixed;bottom:22px;left:64px;z-index:500;
          background:#fff;color:#0e8a8a;width:38px;height:38px;
          border-radius:50%;border:2px solid #0e8a8a;
