@@ -17,6 +17,99 @@
   <script src="https://unpkg.com/osmtogeojson@3.0.0-beta.5/osmtogeojson.js"></script>
 
   <style>
+  
+	/* ── MENU NOTIFICHE (SIDE PANEL) ── */
+	.side-panel {
+	  position: fixed;
+	  top: 0;
+	  right: -320px; /* Nascosto a destra */
+	  width: 300px;
+	  height: 100%;
+	  background: var(--bg-panel);
+	  z-index: 10000;
+	  box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+	  transition: right 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+	  display: flex;
+	  flex-direction: column;
+	}
+
+	.side-panel.open {
+	  right: 0; /* Scorre verso l'interno */
+	}
+
+	.side-panel-header {
+	  padding: 20px;
+	  background: var(--primary);
+	  color: white;
+	  display: flex;
+	  justify-content: space-between;
+	  align-items: center;
+	}
+
+	.side-panel-body {
+	  padding: 16px;
+	  flex: 1;
+	  overflow-y: auto;
+	}
+
+	/* Pulsante Rettangolare Arrotondato */
+	.btn-rect-rounded {
+	  width: 100%;
+	  padding: 14px;
+	  background: var(--primary);
+	  color: white;
+	  border: none;
+	  border-radius: var(--radius-md);
+	  font-weight: 700;
+	  font-size: 0.9rem;
+	  cursor: pointer;
+	  margin-bottom: 20px;
+	  box-shadow: 0 4px 12px rgba(14, 138, 138, 0.2);
+	  transition: transform 0.2s, background 0.2s;
+	}
+
+	.btn-rect-rounded:active {
+	  transform: scale(0.98);
+	}
+
+	.close-side-panel {
+	  background: none;
+	  border: none;
+	  color: white;
+	  font-size: 1.2rem;
+	  cursor: pointer;
+	}
+
+	.notifications-list {
+	  display: flex;
+	  flex-direction: column;
+	  gap: 12px;
+	}
+
+	.notification-placeholder {
+	  text-align: center;
+	  color: var(--text-muted);
+	  font-size: 0.85rem;
+	  margin-top: 40px;
+	  padding: 0 20px;
+	}
+  
+    /* Layout per impilare i pulsanti a destra */
+    .custom-layer-control-container { 
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    /* Animazione di rotazione */
+    @keyframes spin-refresh {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    
+    .refresh-spinning {
+      animation: spin-refresh 1s linear infinite;
+    }
     /* ── BASE & TYPOGRAPHY ── */
     :root {
       --primary: #0e8a8a;
@@ -147,7 +240,13 @@
     .stn-marker.active { border: 3px solid #fff; background: #0f172a; transform: scale(1.15); z-index: 1000 !important; }
 
     /* ── MENU LAYER CUSTOM (COLLAPSIBLE) ── */
-    .custom-layer-control-container { position: relative; font-family: 'Inter', system-ui, sans-serif; }
+    .custom-layer-control-container { 
+        position: relative; 
+        font-family: 'Inter', system-ui, sans-serif; 
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
     
     .layer-control-toggle {
       width: 44px; height: 44px; border-radius: 50%; background: #fff; border: none;
@@ -320,7 +419,28 @@
     <button id="fab-open" class="fab-btn primary" style="display:none;" onclick="openPanel()" title="Apri dati">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-4"/></svg>
     </button>
-    <button onclick="subscribeUser()" class="fab-btn" title="Attiva notifiche push">🔔</button>
+    
+	<button onclick="toggleNotificationsMenu()" class="fab-btn" title="Notifiche">🔔</button>
+
+	<div id="notifications-menu" class="side-panel">
+	  <div class="side-panel-header">
+		<h3>Notifiche</h3>
+		<button class="close-side-panel" onclick="toggleNotificationsMenu()">✕</button>
+	  </div>
+	  
+	  <div class="side-panel-body">
+		<button id="btn-subscribe-main" onclick="subscribeUser()" class="btn-rect-rounded">
+		  Attiva Notifiche Push
+		</button>
+		
+		<div class="notifications-list" id="notifications-list">
+		  <div class="notification-placeholder">
+			Non ci sono nuove notifiche.
+		  </div>
+		</div>
+	  </div>
+	</div>
+	
     <button onclick="document.getElementById('info-modal').classList.add('open')" class="fab-btn" title="Informazioni">i</button>
   </div>
 
@@ -546,7 +666,7 @@ async function loadCPA() {
                target="_blank"
                style="display:inline-flex;align-items:center;gap:6px;background:var(--primary);color:#fff;padding:8px 14px;
                       border-radius:8px;text-decoration:none;font-size:0.8rem;font-weight:600;transition:background 0.2s;">
-              ▲ Naviga con Maps
+               Naviga con Maps
             </a>
           </div>
         </div>`);
@@ -581,19 +701,64 @@ function toggleWaterways(visible) {
   else map.removeLayer(waterwayLayerGroup);
 }
 
+// Funzione per aprire/chiudere il menu
+function toggleNotificationsMenu() {
+  const menu = document.getElementById('notifications-menu');
+  menu.classList.toggle('open');
+  
+  // Opzionale: cambia il testo del pulsante se l'utente è già iscritto
+  updateSubscribeButton();
+}
+
+// Aggiorna visivamente il pulsante se l'utente ha già dato il permesso
+async function updateSubscribeButton() {
+  const btn = document.getElementById('btn-subscribe-main');
+  if (!('Notification' in window)) return;
+  
+  if (Notification.permission === 'granted') {
+    btn.textContent = 'Notifiche Attive ✓';
+    btn.style.background = '#166534'; // Verde scuro
+    btn.style.opacity = '0.8';
+  }
+}
+
+// (Facoltativo) Funzione per aggiungere una notifica alla lista nel menu
+function addNotificationToMenu(title, message, time) {
+  const list = document.getElementById('notifications-list');
+  const placeholder = list.querySelector('.notification-placeholder');
+  if (placeholder) placeholder.remove();
+
+  const item = document.createElement('div');
+  item.style.cssText = "background:#f8fafc; padding:12px; border-radius:8px; border-left:4px solid var(--primary);";
+  item.innerHTML = `
+    <div style="font-weight:700; font-size:0.85rem; margin-bottom:4px;">${title}</div>
+    <div style="font-size:0.8rem; color:var(--text-muted); line-height:1.4;">${message}</div>
+    <div style="font-size:0.7rem; color:#94a3b8; margin-top:6px;">${time}</div>
+  `;
+  list.prepend(item);
+}
+
 // ── LAYER SWITCHER UNIFICATO (CUSTOM COLLAPSIBLE) ─────────────────────────────
+
 const LayerSwitcher = L.Control.extend({
   options: { position: 'topright' },
   onAdd: function() {
     const container = L.DomUtil.create('div', 'custom-layer-control-container');
     
     container.innerHTML = `
-      <button class="layer-control-toggle" title="Livelli Mappa">
+      <button class="layer-control-toggle toggle-menu-btn" title="Livelli Mappa">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
       </button>
+
+      <button id="refresh-osm-btn" class="layer-control-toggle" title="Aggiorna Dati Mappa">
+		  <svg id="refresh-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+			<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.83 6.74 2.74L21 8"></path>
+			<path d="M21 3v5h-5"></path>
+		  </svg>
+		</button>
+
       <div class="layer-control-menu">
         <div class="layer-control-header">Livelli Mappa</div>
-
         <div class="layer-control-section-title first">Idrografia</div>
         <div class="layer-control-items">
           <label class="layer-control-item">
@@ -602,7 +767,6 @@ const LayerSwitcher = L.Control.extend({
             Corsi d'acqua
           </label>
         </div>
-
         <div class="layer-control-section-title">Aree Protezione Civile</div>
         <div class="layer-control-items">
           ${Object.entries(CPA_STYLES).map(([key, style]) => `
@@ -613,29 +777,55 @@ const LayerSwitcher = L.Control.extend({
             </label>
           `).join('')}
         </div>
-        <button id="btn-load-cpa" onclick="loadCPA()">Aggiorna Dati OSM</button>
       </div>
     `;
 
     L.DomEvent.disableClickPropagation(container);
     L.DomEvent.disableScrollPropagation(container);
 
-    const toggleBtn = container.querySelector('.layer-control-toggle');
+    const menuBtn = container.querySelector('.toggle-menu-btn');
+    const refreshBtn = container.querySelector('#refresh-osm-btn');
+    const refreshIcon = container.querySelector('#refresh-icon');
     const menu = container.querySelector('.layer-control-menu');
 
-    // Apri/chiudi al click del bottone
-    toggleBtn.addEventListener('click', (e) => {
+    // Gestione Apertura Menu
+    menuBtn.addEventListener('click', (e) => {
       e.preventDefault();
       menu.classList.toggle('open');
     });
 
-    // Chiudi se clicchi fuori (sulla mappa)
-    map.on('click', () => menu.classList.remove('open'));
+   
+	// Gestione Refresh con Animazione e blocco click multipli
+	refreshBtn.addEventListener('click', async (e) => {
+	  e.preventDefault();
+	  
+	  // Se sta già caricando (pulsante disabilitato), ignora il click
+	  if (refreshBtn.disabled) return;
 
+	  // 1. Avvia rotazione e disabilita il pulsante
+	  refreshIcon.classList.add('refresh-spinning');
+	  refreshBtn.disabled = true;
+	  refreshBtn.style.opacity = '0.5'; // Opzionale: feedback visivo aggiuntivo
+	  
+	  try {
+		// 2. Esegue il caricamento dei dati e attende che ENTRAMBI finiscano
+		await Promise.all([loadWaterways(), loadCPA()]);
+	  } catch (err) {
+		console.error("Errore durante l'aggiornamento dei dati:", err);
+	  } finally {
+		// 3. Ferma l'animazione e ripristina il pulsante SOLO a dati caricati (o in caso di errore)
+		refreshIcon.classList.remove('refresh-spinning');
+		refreshBtn.disabled = false;
+		refreshBtn.style.opacity = '1';
+	  }
+});
+
+    map.on('click', () => menu.classList.remove('open'));
     return container;
   }
 });
 map.addControl(new LayerSwitcher());
+
 
 // ── MARKER STAZIONI ───────────────────────────────────────────────────────────
 async function loadOSMNode(stn) {
