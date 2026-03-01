@@ -629,6 +629,12 @@ const bc = new BroadcastChannel('notifications-channel');
 bc.onmessage = (event) => {
   console.log("Ricevuta notifica via BroadcastChannel:", event.data);
   addNotificationToUI(event.data);
+					
+  setTimeout(() => { if (typeof loadAllerta === 'function') loadAllerta(); }, 1000);
+					
+											   
+	 
+		   
 };
 
 // 4. Avvia il caricamento quando la pagina è pronta
@@ -818,73 +824,21 @@ function toggleNotificationsMenu() {
   updateSubscribeButton();
 }
 
-// 2. Funzione per salvare nel localStorage
-function saveNotification(notif) {
-  let history = JSON.parse(localStorage.getItem('notifhistory') || '[]');
-  history.unshift(notif);
-  if (history.length > 20) history.pop();
-  localStorage.setItem('notifhistory', JSON.stringify(history));
-}
-
-
-// 3. Funzione per mostrare le notifiche nel menu
-function renderNotifications() {
-  const list = document.getElementById('notifications-list');
-  
-  // ✅ Robusto: gestisce localStorage vuoto/cattivo
-  let history = [];
-  try {
-    const stored = localStorage.getItem('notifhistory');
-    if (stored) {
-      history = JSON.parse(stored);
-      if (!Array.isArray(history)) history = [];
-    }
-  } catch (e) {
-    console.error('Errore lettura notifiche:', e);
-    history = [];
-  }
-
-  if (!history.length) {
-    list.innerHTML = '<div class="notification-placeholder">Non ci sono nuove notifiche.</div>';
-    return;
-  }
-
-  list.innerHTML = history.map(n => `
-    <div class="notification-item">
-      <div class="notif-title">${n.title || ''}</div>
-      <div class="notif-body">${n.body || ''}</div>
-      <div class="notif-time">${n.timestamp || ''}</div>
-    </div>
-  `).join('');
-}
-
-
 function clearNotifications() {
-  localStorage.removeItem('notifhistory');
-  renderNotifications();
+  const req = indexedDB.open('NotificheDB', 1);
+  req.onsuccess = (event) => {
+    const db = event.target.result;
+    if (!db.objectStoreNames.contains('notifications')) return;
+    const tx = db.transaction('notifications', 'readwrite');
+    tx.objectStore('notifications').clear();
+    tx.oncomplete = () => {
+      const list = document.querySelector('.notifications-list');
+      if (list) list.innerHTML = '<p class="notification-placeholder">Nessuna notifica recente</p>';
+    };
+  };
 }
 
-// Carica le notifiche salvate all'apertura del menu o al caricamento pagina
-document.addEventListener('DOMContentLoaded', renderNotifications);
 
-const bc = new BroadcastChannel('notifications-channel');
-bc.onmessage = event => {
-  console.log('Notifica ricevuta in tempo reale:', event.data);
-  
-  // 1. Salva e mostra la notifica nel centro notifiche
-  saveNotification(event.data);
-  renderNotifications();
-
-  // 2. Aggiorna la barra delle allerte e il sottomenu
-  // Usiamo un piccolo ritardo (1 secondo) per essere sicuri che 
-  // il server abbia finito di aggiornare il file JSON sul disco
-  setTimeout(() => {
-    if (typeof loadAllerta === 'function') {
-      loadAllerta();
-      console.log('Barra allerte aggiornata con i nuovi dati!');
-    }
-  }, 1000); 
-};
 
 	
 // Aggiorna visivamente il pulsante se l'utente ha già dato il permesso
