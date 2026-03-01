@@ -3,7 +3,7 @@
 <head>
 
   <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#0e8a8a" />
+  <meta name="theme-color" content="#8d021f" />
 
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -67,10 +67,10 @@
 	/* ── MENU NOTIFICHE (SIDE PANEL) ── */
 	.side-panel {
 	  position: fixed;
-	  top: 0;
+	  top: 46px;
 	  right: -320px; /* Nascosto a destra */
 	  width: 300px;
-	  height: 100%;
+	  height: calc(100% - 46px);
 	  background: var(--bg-panel);
 	  z-index: 10000;
 	  box-shadow: -4px 0 20px rgba(0,0,0,0.15);
@@ -110,7 +110,7 @@
 	  font-size: 0.9rem;
 	  cursor: pointer;
 	  margin-bottom: 20px;
-	  box-shadow: 0 4px 12px rgba(14, 138, 138, 0.2);
+	  box-shadow: 0 4px 12px rgba(141, 2, 31, 0.2);
 	  transition: transform 0.2s, background 0.2s;
 	}
 
@@ -156,11 +156,27 @@
     .refresh-spinning {
       animation: spin-refresh 1s linear infinite;
     }
+    /* ── OFFSET SOTTO BARRA ALLERTE ── */
+    .leaflet-top { margin-top: 46px !important; }
+
+    /* ── TOOLTIP STAZIONI ARPAV ── */
+    .leaflet-tooltip.custom-tooltip {
+      background: #ffffff;
+      border: none;
+      border-radius: 10px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.13);
+      padding: 9px 13px;
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      font-size: 0.82rem;
+      color: #1e293b;
+      pointer-events: none;
+    }
+    .leaflet-tooltip.custom-tooltip::before { display: none; }
     /* ── BASE & TYPOGRAPHY ── */
     :root {
-      --primary: #0e8a8a;
-      --primary-dark: #096b6b;
-      --primary-light: #e0f2f1;
+      --primary: #8d021f;
+      --primary-dark: #6b0117;
+      --primary-light: #fce8ec;
       --text-main: #1e293b;
       --text-muted: #64748b;
       --bg-body: #f1f5f9;
@@ -173,21 +189,32 @@
     
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     html, body { height: 100%; overflow: hidden; }
-    body { font-family: 'Inter', 'Segoe UI', system-ui, Arial, sans-serif; background: var(--bg-body); color: var(--text-main); }
+    body { font-family: 'Inter', 'Segoe UI', system-ui, Arial, sans-serif; color: var(--text-main); }
 
     /* ── STRUTTURA PRINCIPALE ── */
-    #app { display: flex; flex-direction: column; height: 100vh; position: relative; }
-    #map { flex: 1; z-index: 1; min-height: 0; width: 100%; order: 2; }
+    #app { display: flex; flex-direction: column; height: 100vh; position: relative; background: transparent; }
+    #map { position: absolute; inset: 0; z-index: 0; }
 
     /* ── PANNELLO DATI (TOP) ── */
     #panel {
-      width: 100%; height: 420px; max-height: 55vh; flex-shrink: 0; background: var(--bg-panel);
+      width: 100%; height: 500px; max-height: 65vh; flex-shrink: 0; background: var(--bg-panel);
+      position: relative; z-index: 5;
       display: flex; flex-direction: column;
       box-shadow: 0 4px 16px rgba(0,0,0,.1);
-      overflow: hidden; z-index: 2; transition: height 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+      overflow: hidden; z-index: 3; transition: height 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
       order: 1; border-bottom: 1px solid #e2e8f0;
+     
     }
     #panel.hidden-desktop { height: 0; border-bottom: none; }
+    /* ── PANNELLO ARPAV: colori verde acqua indipendenti dal tema ── */
+    #panel-header { background: #0e8a8a !important; }
+    .s-tab:hover { color: #0e8a8a !important; }
+    .s-tab.active { color: #0e8a8a !important; border-bottom-color: #0e8a8a !important; }
+    .stat-card .val { color: #0e8a8a !important; }
+    .data-table tr.latest td { background: #e0f2f1 !important; color: #096b6b !important; }
+    .loading { color: #0e8a8a !important; }
+    .spinner { border-color: rgba(14,138,138,.25) !important; border-top-color: #0e8a8a !important; }
+    #panel .placeholder svg { color: #0e8a8a !important; }
 
     #panel-header {
       background: var(--primary); color: #fff;
@@ -280,7 +307,7 @@
     .stn-marker {
       border-radius: 50%; display: flex; align-items: center; justify-content: center;
       border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.4);
-      cursor: pointer; background: var(--primary); transition: transform 0.2s;
+      cursor: pointer; background: #0e8a8a; transition: transform 0.2s;
     }
     .stn-marker:hover { transform: scale(1.1); }
     .stn-marker.active { border: 3px solid #fff; background: #0f172a; transform: scale(1.15); z-index: 1000 !important; }
@@ -336,29 +363,31 @@
     .fab-container { position: fixed; bottom: 24px; left: 16px; z-index: 500; display: flex; flex-direction: column; gap: 12px; }
     
     .fab-btn {
-      background: #fff; color: var(--primary); width: 44px; height: 44px;
-      border-radius: 50%; border: none; box-shadow: var(--shadow-float);
-      cursor: pointer; font-size: 1.2rem; font-weight: 700;
+      background: #fff; color: var(--text-main); width: 44px; height: 44px;
+      border-radius: 50%; border: none; box-shadow: var(--shadow-soft);
+      cursor: pointer; font-size: 1.1rem; font-weight: 700;
       display: flex; align-items: center; justify-content: center;
       transition: all 0.2s; outline: none;
     }
-    .fab-btn:hover { transform: translateY(-2px); background: var(--primary-light); }
-    .fab-btn.primary { background: var(--primary); color: #fff; }
-    .fab-btn.primary:hover { background: var(--primary-dark); }
+    .fab-btn:hover { background: #f8fafc; color: var(--primary-light); }
+    .fab-btn.primary { background: #0e8a8a; color: #fff; }
+    .fab-btn.primary:hover { background: #096b6b; }
 
     /* ── BARRA ALLERTA ── */
     #allerta-bar {
-      display: none; position: relative; z-index: 100;
+      display: none;
+      position: relative; z-index: 10; order: 0; flex-shrink: 0;
       padding: 10px 16px; cursor: pointer;
-      flex-shrink: 0; transition: background .3s;
-      order: 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      transition: background .3s;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      border-radius: 0 0 24px 24px;
     }
     #allerta-bar.visible { display: flex; align-items: center; gap: 12px; }
-    #allerta-bar-inner { display: flex; align-items: center; gap: 12px; flex: 1; flex-wrap: wrap; }
+    #allerta-bar-inner { display: flex; justify-content: center; align-items: center; gap: 12px; flex: 1; flex-wrap: wrap; }
     .allerta-bollino-wrap { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; color: #fff; }
     .allerta-bollino { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(255,255,255,.9); flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
     #allerta-bar-title { font-size: 0.85rem; font-weight: 700; color: #fff; opacity: .9; margin-left: auto; white-space: nowrap; }
-    #allerta-bar-chevron { color: rgba(255,255,255,.9); font-size: 0.9rem; flex-shrink: 0; }
+    #allerta-bar-chevron {color: rgba(255,255,255,.9); flex-shrink: 0; display: flex; align-items: center; margin-left: auto; }
 
     /* ── MODALI (Allerta & Info) ── */
     .modal-overlay {
@@ -425,7 +454,10 @@
       <div class="allerta-bollino-wrap"><div class="allerta-bollino" id="bar-bollino-temp"></div><span id="bar-label-temp">Temporali</span></div>
     </div>
     <!--<span id="allerta-bar-title">Allerta ARPAV</span> -->
-    <span id="allerta-bar-chevron">▲</span>
+    <span id="allerta-bar-chevron">
+      <span class="allerta-open-label">Dettagli</span>
+      <svg class="allerta-open-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    </span>
   </div>
 
   <div id="allerta-modal" class="modal-overlay" style="align-items: flex-end;" onclick="if(event.target===this)this.classList.remove('open')">
@@ -463,10 +495,12 @@
 
   <div class="fab-container">
     <button id="fab-open" class="fab-btn primary" style="display:none;" onclick="openPanel()" title="Apri dati">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-4"/></svg>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
     </button>
     
-	<button onclick="toggleNotificationsMenu()" class="fab-btn" title="Notifiche">🔔</button>
+	<button onclick="toggleNotificationsMenu()" class="fab-btn" title="Notifiche">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+    </button>
 
 <div id="notifications-menu" class="side-panel">
   <div class="side-panel-header">
@@ -490,7 +524,9 @@
 
 
 	
-    <button onclick="document.getElementById('info-modal').classList.add('open')" class="fab-btn" title="Informazioni">i</button>
+    <button onclick="document.getElementById('info-modal').classList.add('open')" class="fab-btn" title="Informazioni">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+    </button>
   </div>
 
   <div id="panel" class="hidden-desktop">
@@ -718,11 +754,7 @@ async function loadWaterways() {
         const name = tags.name || tags.ref || null;
         const type = tags.waterway || '';
         const labelMap = { river: 'Fiume', stream: 'Torrente/Rio', canal: 'Canale', drain: 'Scolo', ditch: 'Fosso' };
-        layer.bindTooltip(
-          `<div style="font-family:Inter,sans-serif"><b>${name || labelMap[type] || "Corso d'acqua"}</b>` +
-          (name ? `<br><span style="color:#64748b;font-size:.8em">${labelMap[type] || type}</span></div>` : '</div>'),
-          { sticky: true, className: 'custom-tooltip' }
-        );
+        layer.bindPopup(name || labelMap[type] || "Corso d'acqua");
         waterwayLayerGroup.addLayer(layer);
       }
     });
@@ -1008,9 +1040,12 @@ async function initMarkers() {
   STATIONS.forEach(stn => {
     const m = L.marker([stn.lat, stn.lon], { icon: buildIcon(stn, false) }).addTo(map)
       .bindTooltip(
-        `<div style="font-family:'Inter',sans-serif"><b>${stn.name}</b><br><span style="color:var(--text-muted);font-size:0.85em">${stn.subtitle}</span>` +
-        (stn.osmName ? `<br><i style="font-size:.8em;color:#94a3b8">${stn.osmName}</i>` : '') +
-        `<br><span style="font-size:.75em;color:#cbd5e1;margin-top:4px;display:block;">Stazione #${stn.id}</span></div>`,
+        `<div>
+          <div style="font-weight:700;font-size:0.88rem;color:#0e8a8a">${stn.name}</div>
+          <div style="color:#64748b;font-size:0.78rem;margin-top:2px">${stn.subtitle}</div>
+          ${stn.osmName ? `<div style="color:#94a3b8;font-size:0.75rem;margin-top:2px">${stn.osmName}</div>` : ''}
+          <div style="color:#cbd5e1;font-size:0.7rem;margin-top:4px">Stazione #${stn.id}</div>
+        </div>`,
         { direction: 'top', offset: [0, -16], className: 'custom-tooltip' }
       );
     m.on('click', () => { loadStation(stn); openPanel(); });
