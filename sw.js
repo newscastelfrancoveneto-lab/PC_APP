@@ -29,19 +29,48 @@ self.addEventListener('notificationclick', event => {
   );
 });
 
-// TODO: implementa davvero openDB() con IndexedDB
-async function openDB() {
-  // Qui va la tua implementazione IndexedDB (idb, ecc.).
-  // Per ora, stub che non rompe nulla.
-  return {
-    transaction() {
-      return {
-        objectStore() {
-          return { add() {} };
+function openDB() {
+  return new Promise((resolve, reject) => {
+    // IMPORTANTE: Sostituisci 'NotificheDB' con il nome esatto del database 
+    // che stai già usando nel tuo file index.html per leggere i dati.
+    const request = indexedDB.open('NotificheDB', 1);
+
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains('notifications')) {
+        db.createObjectStore('notifications', { autoIncrement: true });
+      }
+    };
+
+    request.onsuccess = (event) => {
+      const db = event.target.result;
+      
+      // Creiamo un wrapper che rispetta la sintassi che hai già in saveAndBroadcastNotification
+      resolve({
+        transaction(storeName, mode) {
+          const tx = db.transaction(storeName, mode);
+          return {
+            objectStore(name) {
+              const store = tx.objectStore(name);
+              return {
+                add(item) {
+                  return new Promise((res, rej) => {
+                    const req = store.add(item);
+                    req.onsuccess = () => res(req.result);
+                    req.onerror = () => rej(req.error);
+                  });
+                }
+              };
+            }
+          };
         }
-      };
-    }
-  };
+      });
+    };
+
+    request.onerror = (event) => {
+      reject(event.target.error);
+    };
+  });
 }
 
 // Salva + Broadcast al client
