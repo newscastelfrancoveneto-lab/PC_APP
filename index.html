@@ -482,9 +482,9 @@
     <button id="btn-subscribe-main" onclick="subscribeUser()" class="btn-rect-rounded">
       Attiva Notifiche Push
     </button>
-    <div class="notifications-list" id="notifications-list">
-      <div class="notification-placeholder">Non ci sono nuove notifiche.</div>
-    </div>
+    <div class="notifications-list">
+	   <p class="notification-placeholder">Nessuna notifica recente</p>
+	</div>
   </div>
 </div>
 
@@ -576,6 +576,65 @@ function closePanel() {
   currentId = null; currentStnRef = null;
   STATIONS.forEach(s => markerRefs[s.id]?.setIcon(buildIcon(s, false)));
 }
+
+// --- GESTIONE NOTIFICHE LOCALI (IndexedDB) ---
+
+// 1. Funzione per caricare le notifiche salvate all'avvio
+function loadSavedNotifications() {
+  const request = indexedDB.open('NotificheDB', 1);
+
+  request.onsuccess = (event) => {
+    const db = event.target.result;
+    if (!db.objectStoreNames.contains('notifications')) return;
+
+    const transaction = db.transaction('notifications', 'readonly');
+    const store = transaction.objectStore('notifications');
+    const getAllRequest = store.getAll();
+
+    getAllRequest.onsuccess = () => {
+      const notifications = getAllRequest.result;
+      const list = document.querySelector('.notifications-list');
+      if (!list) return;
+
+      // Puliamo la lista (tranne il placeholder se vuoi) e carichiamo
+      // Mostriamo le ultime notifiche in alto (reverse)
+      notifications.reverse().forEach(notif => {
+        addNotificationToUI(notif);
+      });
+    };
+  };
+}
+
+// 2. Funzione per aggiungere fisicamente la notifica nel menu laterale
+function addNotificationToUI(notif) {
+  const list = document.querySelector('.notifications-list');
+  const placeholder = document.querySelector('.notification-placeholder');
+  
+  if (placeholder) placeholder.style.display = 'none';
+  if (!list) return;
+
+  const item = document.createElement('div');
+  item.className = 'notification-item';
+  item.innerHTML = `
+    <div style="font-weight:bold; color:#0e8a8a;">${notif.title}</div>
+    <div style="font-size:0.9rem;">${notif.body}</div>
+    <div style="font-size:0.7rem; color:#666; margin-top:4px;">${notif.timestamp}</div>
+  `;
+  list.prepend(item); // Inserisce in cima alla lista
+}
+
+// 3. ASCOLTA IL SERVICE WORKER (BroadcastChannel)
+// Questo serve per vedere la notifica apparire "in diretta" se l'app è aperta
+const bc = new BroadcastChannel('notifications-channel');
+bc.onmessage = (event) => {
+  console.log("Ricevuta notifica via BroadcastChannel:", event.data);
+  addNotificationToUI(event.data);
+};
+
+// 4. Avvia il caricamento quando la pagina è pronta
+window.addEventListener('DOMContentLoaded', () => {
+  loadSavedNotifications();
+});
 
 // ── MAPPA ─────────────────────────────────────────────────────────────────────
 const map = L.map('map', { center: [45.6640, 11.9580], zoom: 13, zoomControl: false });
