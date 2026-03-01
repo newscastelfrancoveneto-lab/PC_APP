@@ -1312,7 +1312,7 @@ async function loadAllerta() {
       const el = document.getElementById('bar-bollino-' + k);
       const lbl = document.getElementById('bar-label-' + k);
       if (el) el.style.background = ALLERTA_COLORS[d[k]] || '#64748b';
-      if (lbl) lbl.textContent = ({ idr: 'Idraulico', idro: 'Idrogeologico', temp: 'Temporali' })[k] + ': ' + (d[k] || '–');
+      if (lbl) lbl.textContent = ({ idr: 'Idraulico', idro: 'Idrogeologico', temp: 'Temporali' })[k];
     });
 
     document.getElementById('allerta-periodo').textContent = d.periodo || '—';
@@ -1328,7 +1328,6 @@ async function loadAllerta() {
       <div class="allerta-row">
         <div class="bollino-lg" style="background:${ALLERTA_COLORS[d[r.key]] || '#64748b'}"></div>
         <span class="label">${r.label}</span>
-        <span class="livello" style="color:${ALLERTA_COLORS[d[r.key]] || '#64748b'}">${d[r.key] || '–'}</span>
       </div>`).join('');
 
     setTimeout(() => map.invalidateSize(), 300);
