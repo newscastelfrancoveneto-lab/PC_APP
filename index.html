@@ -577,70 +577,95 @@ function closePanel() {
   STATIONS.forEach(s => markerRefs[s.id]?.setIcon(buildIcon(s, false)));
 }
 
-// --- GESTIONE NOTIFICHE LOCALI (IndexedDB) ---
+// --- GESTIONE NOTIFICHE ---
 
-// 1. Funzione per caricare le notifiche salvate all'avvio
-function loadSavedNotifications() {
-  const request = indexedDB.open('NotificheDB', 1);
-
-  request.onsuccess = (event) => {
-    const db = event.target.result;
-    if (!db.objectStoreNames.contains('notifications')) return;
-
-    const transaction = db.transaction('notifications', 'readonly');
-    const store = transaction.objectStore('notifications');
-    const getAllRequest = store.getAll();
-
-    getAllRequest.onsuccess = () => {
-      const notifications = getAllRequest.result;
-      const list = document.querySelector('.notifications-list');
-      if (!list) return;
-
-      // Puliamo la lista (tranne il placeholder se vuoi) e carichiamo
-      // Mostriamo le ultime notifiche in alto (reverse)
-      notifications.reverse().forEach(notif => {
-        addNotificationToUI(notif);
-      });
-    };
-  };
+// Salva una notifica in localStorage (max 20)
+function _notifSave(notif) {
+  let list = [];
+  try { list = JSON.parse(localStorage.getItem('notifList') || '[]'); } catch(e) {}
+  // Evita duplicati (stesso timestamp+title)
+  const key = (notif.title || '') + (notif.timestamp || '');
+  if (list.some(n => (n.title||'')+(n.timestamp||'') === key)) return;
+  list.unshift(notif);
+  if (list.length > 20) list.pop();
+  localStorage.setItem('notifList', JSON.stringify(list));
 }
 
-// 2. Funzione per aggiungere fisicamente la notifica nel menu laterale
-function addNotificationToUI(notif) {
-  const list = document.querySelector('.notifications-list');
-  const placeholder = document.querySelector('.notification-placeholder');
-  
-  if (placeholder) placeholder.style.display = 'none';
-  if (!list) return;
-
+// Aggiunge una notifica alla UI (e la persiste in localStorage)
+function addNotificationToUI(notif, persist = true) {
+  if (persist) _notifSave(notif);
+  const listEl = document.querySelector('.notifications-list');
+  if (!listEl) return;
+  const placeholder = listEl.querySelector('.notification-placeholder');
+  if (placeholder) placeholder.remove();
   const item = document.createElement('div');
   item.className = 'notification-item';
   item.innerHTML = `
-    <div style="font-weight:bold; color:#0e8a8a;">${notif.title}</div>
-    <div style="font-size:0.9rem;">${notif.body}</div>
-    <div style="font-size:0.7rem; color:#666; margin-top:4px;">${notif.timestamp}</div>
+    <div class="notif-title">${notif.title || ''}</div>
+    <div class="notif-body">${notif.body || ''}</div>
+    <div class="notif-time">${notif.timestamp || ''}</div>
   `;
-  list.prepend(item); // Inserisce in cima alla lista
+  listEl.prepend(item);
 }
 
-// 3. ASCOLTA IL SERVICE WORKER (BroadcastChannel)
-// Questo serve per vedere la notifica apparire "in diretta" se l'app è aperta
+// Carica le notifiche salvate all'avvio
+function loadSavedNotifications() {
+  // 1. Prova localStorage (fonte primaria per le notifiche ricevute mentre l'app era aperta)
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem('notifList') || '[]'); } catch(e) {}
+
+  if (saved.length > 0) {
+    saved.forEach(n => addNotificationToUI(n, false)); // false = non ri-salvare
+    return;
+  }
+
+  // 2. Fallback: IndexedDB (notifiche salvate dal Service Worker quando l'app era chiusa)
+  try {
+    const req = indexedDB.open('NotificheDB', 1);
+    req.onsuccess = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains('notifications')) return;
+      const getAllReq = db.transaction('notifications', 'readonly').objectStore('notifications').getAll();
+      getAllReq.onsuccess = () => {
+        const notifications = getAllReq.result || [];
+        [...notifications].reverse().forEach(n => addNotificationToUI(n, true)); // salva in localStorage
+      };
+    };
+  } catch(e) { console.warn('IndexedDB non disponibile:', e); }
+}
+
+// Svuota tutte le notifiche
+function clearNotifications() {
+  // 1. Pulisci localStorage SUBITO
+  localStorage.removeItem('notifList');
+  // 2. Pulisci DOM SUBITO
+  const listEl = document.querySelector('.notifications-list');
+  if (listEl) listEl.innerHTML = '<p class="notification-placeholder">Nessuna notifica recente</p>';
+  // 3. Pulisci IndexedDB (best effort, non blocca nulla)
+  try {
+    const req = indexedDB.open('NotificheDB', 1);
+    req.onsuccess = (event) => {
+      const db = event.target.result;
+      if (db.objectStoreNames.contains('notifications'))
+        db.transaction('notifications', 'readwrite').objectStore('notifications').clear();
+    };
+  } catch(e) {}
+}
+
+// Ascolta notifiche in arrivo dal Service Worker in tempo reale
 const bc = new BroadcastChannel('notifications-channel');
 bc.onmessage = (event) => {
-  console.log("Ricevuta notifica via BroadcastChannel:", event.data);
-  addNotificationToUI(event.data);
-					
+  console.log("Notifica ricevuta in tempo reale:", event.data);
+  addNotificationToUI(event.data); // aggiunge UI + salva in localStorage
   setTimeout(() => { if (typeof loadAllerta === 'function') loadAllerta(); }, 1000);
-					
-											   
-	 
-		   
 };
 
-// 4. Avvia il caricamento quando la pagina è pronta
-window.addEventListener('DOMContentLoaded', () => {
+// Carica notifiche salvate quando la pagina è pronta
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', loadSavedNotifications);
+} else {
   loadSavedNotifications();
-});
+}
 
 // ── MAPPA ─────────────────────────────────────────────────────────────────────
 const map = L.map('map', { center: [45.6640, 11.9580], zoom: 13, zoomControl: false });
@@ -824,19 +849,6 @@ function toggleNotificationsMenu() {
   updateSubscribeButton();
 }
 
-function clearNotifications() {
-  const req = indexedDB.open('NotificheDB', 1);
-  req.onsuccess = (event) => {
-    const db = event.target.result;
-    if (!db.objectStoreNames.contains('notifications')) return;
-    const tx = db.transaction('notifications', 'readwrite');
-    tx.objectStore('notifications').clear();
-    tx.oncomplete = () => {
-      const list = document.querySelector('.notifications-list');
-      if (list) list.innerHTML = '<p class="notification-placeholder">Nessuna notifica recente</p>';
-    };
-  };
-}
 
 
 
