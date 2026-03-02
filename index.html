@@ -743,33 +743,56 @@ function waterwayStyle(feature) {
   return WATERWAY_STYLES[type] || WATERWAY_STYLES.default;
 }
 
+// ── OSM CACHE (localStorage, TTL 12h) ────────────────────────────────────────
+const OSM_CACHE_TTL = 12 * 60 * 60 * 1000; // 12 ore
+
+function osmCacheGet(key) {
+  try {
+    const raw = localStorage.getItem('osmcache_' + key);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts < OSM_CACHE_TTL) return data;
+  } catch(e) {}
+  return null;
+}
+
+function osmCacheSet(key, data) {
+  try {
+    localStorage.setItem('osmcache_' + key, JSON.stringify({ ts: Date.now(), data }));
+  } catch(e) { console.warn('osmCacheSet fallito (storage pieno?):', e); }
+}
+
+function renderWaterwayGeoJSON(geojson) {
+  waterwayLayerGroup.clearLayers();
+  L.geoJSON(geojson, {
+    filter: f => { const gt = f.geometry?.type; return gt !== 'Point' && gt !== 'MultiPoint'; },
+    style: waterwayStyle,
+    onEachFeature: (feature, layer) => {
+      const tags = feature.properties?.tags || feature.properties || {};
+      const name = tags.name || tags.ref || null;
+      const type = tags.waterway || '';
+      const labelMap = { river: 'Fiume', stream: 'Torrente/Rio', canal: 'Canale', drain: 'Scolo', ditch: 'Fosso' };
+      layer.bindPopup(name || labelMap[type] || "Corso d'acqua");
+      waterwayLayerGroup.addLayer(layer);
+    }
+  });
+}
+
 async function loadWaterways() {
+  const cached = osmCacheGet('waterways');
+  if (cached) { renderWaterwayGeoJSON(cached); return; }
+
   const { s, w, n, e } = CV_BBOX;
-  const query = `
-    [out:json][timeout:25];
-    (
-      way["waterway"~"^(river|stream|canal|drain|ditch)$"](${s},${w},${n},${e});
-      relation["waterway"~"^(river|stream|canal|drain|ditch)$"](${s},${w},${n},${e});
-    );
-    out body; >; out skel qt;
-  `;
+  const query = `[out:json][timeout:25][bbox:${s},${w},${n},${e}];
+(way["waterway"~"^(river|stream|canal|drain|ditch)$"];
+ relation["waterway"~"^(river|stream|canal|drain|ditch)$"];);
+out geom;`;
   try {
     const res   = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: query });
     const data  = await res.json();
     const geojson = osmtogeojson(data);
-    waterwayLayerGroup.clearLayers();
-    L.geoJSON(geojson, {
-      filter: f => { const gt = f.geometry?.type; return gt !== 'Point' && gt !== 'MultiPoint'; },
-      style: waterwayStyle,
-      onEachFeature: (feature, layer) => {
-        const tags = feature.properties?.tags || feature.properties || {};
-        const name = tags.name || tags.ref || null;
-        const type = tags.waterway || '';
-        const labelMap = { river: 'Fiume', stream: 'Torrente/Rio', canal: 'Canale', drain: 'Scolo', ditch: 'Fosso' };
-        layer.bindPopup(name || labelMap[type] || "Corso d'acqua");
-        waterwayLayerGroup.addLayer(layer);
-      }
-    });
+    osmCacheSet('waterways', geojson);
+    renderWaterwayGeoJSON(geojson);
   } catch (e) { console.error("Errore corsi d'acqua:", e); }
 }
 
@@ -803,69 +826,68 @@ function centroid(feature) {
 
 async function loadCPA() {
   const btn = document.getElementById('btn-load-cpa');
+  const cached = osmCacheGet('cpa');
+  if (cached) { renderCPAGeoJSON(cached); return; }
   if (btn) btn.textContent = 'Caricamento...';
   const { s, w, n, e } = CV_BBOX;
-  const query = `
-    [out:json][timeout:15];
-    (
-      way["emergency:waiting_area"="yes"](${s},${w},${n},${e});
-      relation["emergency:waiting_area"="yes"](${s},${w},${n},${e});
-      way["emergency:camp_area"="yes"](${s},${w},${n},${e});
-      relation["emergency:camp_area"="yes"](${s},${w},${n},${e});
-      way["emergency:staging_area"="rescue"](${s},${w},${n},${e});
-      relation["emergency:staging_area"="rescue"](${s},${w},${n},${e});
-    );
-    out body; >; out skel qt;
-  `;
+  const query = `[out:json][timeout:15][bbox:${s},${w},${n},${e}];
+(way["emergency:waiting_area"="yes"];relation["emergency:waiting_area"="yes"];
+ way["emergency:camp_area"="yes"];relation["emergency:camp_area"="yes"];
+ way["emergency:staging_area"="rescue"];relation["emergency:staging_area"="rescue"];);
+out geom;`;
   try {
     const res   = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: query });
     const data  = await res.json();
     const geojson = osmtogeojson(data);
-
-    Object.values(cpaLayers).forEach(l => map.removeLayer(l));
-    cpaLayers = {};
-
-    L.geoJSON(geojson, {
-      style: feature => {
-        const gt = feature.geometry?.type;
-        if (gt === 'Point' || gt === 'MultiPoint') return {};
-        const style = CPA_STYLES[getCPAType(feature)] || CPA_STYLES.waiting;
-        return { color: style.color, fillColor: style.fillColor, weight: 2.5, fillOpacity: 0.35 };
-      },
-      onEachFeature: (feature, layer) => {
-        const gt = feature.geometry?.type;
-        if (gt === 'Point' || gt === 'MultiPoint') return;
-
-        const tags  = feature.properties?.tags || feature.properties || {};
-        const type  = getCPAType(feature);
-        const style = CPA_STYLES[type] || CPA_STYLES.waiting;
-        const name  = tags.name || tags.ref || null;
-
-        layer.bindPopup(`<div style="font-family:'Inter',sans-serif;font-size:0.9rem;">
-          <strong style="color:${style.color};font-size:1rem;">${style.label}</strong>
-          ${name ? `<br><span style="font-size:0.8rem;color:#64748b;margin-top:4px;display:block;">${name}</span>` : ''}
-          <div style="margin-top:12px;">
-            <a href="https://www.google.com/maps/dir/?api=1&destination=${centroid(feature)}"
-               target="_blank"
-               style="display:inline-flex;align-items:center;gap:6px;background:var(--primary);color:#fff;padding:8px 14px;
-                      border-radius:8px;text-decoration:none;font-size:0.8rem;font-weight:600;transition:background 0.2s;">
-               Naviga con Maps
-            </a>
-          </div>
-        </div>`);
-
-        if (!cpaLayers[type]) cpaLayers[type] = L.layerGroup();
-        cpaLayers[type].addLayer(layer);
-      }
-    });
-
-    activeFilters.forEach(f => { if (cpaLayers[f]) cpaLayers[f].addTo(map); });
+    osmCacheSet('cpa', geojson);
+    renderCPAGeoJSON(geojson);
 
   } catch (e) {
     console.error('Errore Overpass CPA:', e);
   } finally {
     if (btn) btn.textContent = 'Aggiorna Dati';
   }
+}
+
+function renderCPAGeoJSON(geojson) {
+  Object.values(cpaLayers).forEach(l => map.removeLayer(l));
+  cpaLayers = {};
+
+  L.geoJSON(geojson, {
+    style: feature => {
+      const gt = feature.geometry?.type;
+      if (gt === 'Point' || gt === 'MultiPoint') return {};
+      const style = CPA_STYLES[getCPAType(feature)] || CPA_STYLES.waiting;
+      return { color: style.color, fillColor: style.fillColor, weight: 2.5, fillOpacity: 0.35 };
+    },
+    onEachFeature: (feature, layer) => {
+      const gt = feature.geometry?.type;
+      if (gt === 'Point' || gt === 'MultiPoint') return;
+
+      const tags  = feature.properties?.tags || feature.properties || {};
+      const type  = getCPAType(feature);
+      const style = CPA_STYLES[type] || CPA_STYLES.waiting;
+      const name  = tags.name || tags.ref || null;
+
+      layer.bindPopup(`<div style="font-family:'Inter',sans-serif;font-size:0.9rem;">
+        <strong style="color:${style.color};font-size:1rem;">${style.label}</strong>
+        ${name ? `<br><span style="font-size:0.8rem;color:#64748b;margin-top:4px;display:block;">${name}</span>` : ''}
+        <div style="margin-top:12px;">
+          <a href="https://www.google.com/maps/dir/?api=1&destination=${centroid(feature)}"
+             target="_blank"
+             style="display:inline-flex;align-items:center;gap:6px;background:var(--primary);color:#fff;padding:8px 14px;
+                    border-radius:8px;text-decoration:none;font-size:0.8rem;font-weight:600;transition:background 0.2s;">
+             Naviga con Maps
+          </a>
+        </div>
+      </div>`);
+
+      if (!cpaLayers[type]) cpaLayers[type] = L.layerGroup();
+      cpaLayers[type].addLayer(layer);
+    }
+  });
+
+  activeFilters.forEach(f => { if (cpaLayers[f]) cpaLayers[f].addTo(map); });
 }
 
 function toggleCPA(type) {
@@ -985,7 +1007,11 @@ const LayerSwitcher = L.Control.extend({
 	  refreshBtn.disabled = true;
 	  refreshBtn.style.opacity = '0.5'; // Opzionale: feedback visivo aggiuntivo
 	  
-	  try {
+	  // Invalida la cache OSM per forzare ricaricamento fresco
+  localStorage.removeItem('osmcache_waterways');
+  localStorage.removeItem('osmcache_cpa');
+
+  try {
 		// 2. Esegue il caricamento dei dati e attende che ENTRAMBI finiscano
 		await Promise.all([loadWaterways(), loadCPA()]);
 	  } catch (err) {
@@ -1552,3 +1578,5 @@ setInterval(loadAllerta, 10 * 60 * 1000);
 </script>
 </body>
 </html>
+
+
