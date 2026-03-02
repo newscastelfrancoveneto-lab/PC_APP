@@ -494,9 +494,6 @@
   <div id="map"></div>
 
   <div class="fab-container">
-    <button id="fab-open" class="fab-btn primary" style="display:none;" onclick="openPanel()" title="Apri dati">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-    </button>
     
 	<button onclick="toggleNotificationsMenu()" class="fab-btn" title="Notifiche">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
@@ -561,7 +558,8 @@ const ARPA_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" wi
 
 const STATIONS = [
   { id: 292, osmNodeId: '12984401383', name: 'Muson dei Sassi', subtitle: 'Castelfranco Veneto', lat: 45.66983651, lon: 11.92027581, soglie: { s1: 1.8, s2: 2.5, s3: 2.9 } },
-  { id: 653, osmNodeId: '12984421539', name: 'Avenale',         subtitle: 'Castelfranco Veneto', lat: 45.6540,      lon: 11.9850,       soglie: { s1: 1.5, s2: 1.8, s3: 2.1 } }
+  { id: 653, osmNodeId: '12984421539', name: 'Avenale',         subtitle: 'Castelfranco Veneto', lat: 45.6540,      lon: 11.9850,       soglie: { s1: 1.5, s2: 1.8, s3: 2.1 } },
+  { id: 102, osmNodeId: 12984403717, name: 'Castelfranco Veneto', subtitle: 'Staz. meteorologica', lat: 45.6716, lon: 11.9258, xmlUrl: 'https://meteo.arpa.veneto.it/meteo/dati_meteo/xml/0102.xml', soglie: null }
 ];
 const SOGLIA_CFG = [
   { key: 's1', label: 'Guardia 1', color: '#eab308' },
@@ -596,7 +594,6 @@ function showBadge(show) { document.getElementById('refresh-badge').classList.to
 function openPanel() {
   const p = document.getElementById('panel');
   p.classList.remove('hidden-desktop');
-  document.getElementById('fab-open').style.display = 'none';
   if (currentId !== null) showBadge(true);
   setTimeout(() => map.invalidateSize(), 350);
 }
@@ -605,7 +602,7 @@ function closePanel() {
   const p = document.getElementById('panel');
   showBadge(false);
   p.classList.add('hidden-desktop');
-  if (currentId !== null) document.getElementById('fab-open').style.display = 'flex';
+  if (currentId !== null)
   setTimeout(() => map.invalidateSize(), 350);
   
   if (activeChart) { activeChart.destroy(); activeChart = null; }
@@ -1054,14 +1051,38 @@ async function initMarkers() {
 }
 
 // ── ARPAV: FETCH & PARSING ────────────────────────────────────────────────────
+// Decodifica un ArrayBuffer rispettando l'encoding dichiarato nell'XML
+// (es. ISO-8859-1 usato dai file meteo ARPAV per la stazione 0102)
+function decodeXml(buf) {
+  const head = new TextDecoder('utf-8', { fatal: false }).decode(buf.slice(0, 300));
+  const m = head.match(/encoding=["']([^"']+)["']/i);
+  const enc = m ? m[1].toLowerCase() : 'utf-8';
+  if (enc === 'utf-8' || enc === 'utf8') return new TextDecoder('utf-8').decode(buf);
+  // Decodifica con l'encoding corretto (es. iso-8859-1)
+  let text = new TextDecoder(enc, { fatal: false }).decode(buf);
+  // Sostituisce la dichiarazione encoding in modo che DOMParser non re-decodifichi
+  text = text.replace(/(encoding=["'])[^"']*(["'])/i, '$1UTF-8$2');
+  return text;
+}
+
 async function fetchText(url) {
   try {
     const r = await fetch(url, { signal: AbortSignal.timeout(5000) });
-    if (r.ok) return r.text();
+    if (r.ok) return decodeXml(await r.arrayBuffer());
   } catch {}
-  const r2 = await fetch(PROXY + encodeURIComponent(url), { signal: AbortSignal.timeout(9000) });
-  if (!r2.ok) throw new Error('HTTP ' + r2.status);
-  return r2.text();
+  const proxies = [
+    'https://corsproxy.io/?',
+    'https://api.allorigins.win/raw?url=',
+    'https://api.codetabs.com/v1/proxy?quest=',
+    'https://thingproxy.freeboard.io/fetch/'
+  ];
+  for (const px of proxies) {
+    try {
+      const r2 = await fetch(px + encodeURIComponent(url), { signal: AbortSignal.timeout(10000) });
+      if (r2.ok) return decodeXml(await r2.arrayBuffer());
+    } catch {}
+  }
+  throw new Error('Failed to fetch');
 }
 
 async function loadStation(stn, silent = false) {
@@ -1076,8 +1097,9 @@ async function loadStation(stn, silent = false) {
     if (activeChart) { activeChart.destroy(); activeChart = null; }
   }
   try {
-    const xml = await fetchText(XML_URL);
-    const sensors = parseXML(xml, stn.id);
+    const xmlUrl = stn.xmlUrl ?? XML_URL;
+    const xml = await fetchText(xmlUrl);
+    const sensors = parseXML(xml, stn.xmlUrl ? null : stn.id);
     if (sensors?.length > 0) { currentSensors = sensors; renderTabs(stn, sensors); return; }
   } catch (_) {}
   try {
@@ -1091,9 +1113,14 @@ async function loadStation(stn, silent = false) {
 function parseXML(xmlText, stationId) {
   const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
   let staz = null;
-  for (const s of doc.querySelectorAll('STAZIONE')) {
-    const el = s.querySelector('IDSTAZ') || s.querySelector('CODSTAZ');
-    if (el?.textContent?.trim() == stationId) { staz = s; break; }
+  if (stationId === null) {
+    staz = doc.querySelector('STAZIONE') || doc.documentElement;
+  } else {
+    for (const s of doc.querySelectorAll('STAZIONE')) {
+      const el = s.querySelector('IDSTAZ') || s.querySelector('CODSTAZ');
+      if (el?.textContent?.trim() == stationId) { staz = s; break; }
+    }
+    if (!staz) { const all = doc.querySelectorAll('STAZIONE'); if (all.length === 1) staz = all[0]; }
   }
   if (!staz) return null;
   const sensors = [];
@@ -1137,7 +1164,104 @@ function parseCSV(text) {
 }
 
 // ── RENDERING TABS & SENSORI ──────────────────────────────────────────────────
+
+// ── Unisce sensori velocità+direzione vento in un unico elemento ─────────────
+function mergeWindSensors(sensors) {
+  const velIdx = sensors.findIndex(s =>
+    s.paramnm?.toLowerCase().includes('velocit') && s.paramnm?.toLowerCase().includes('vento'));
+  const dirIdx = sensors.findIndex(s =>
+    (s.paramnm?.toLowerCase().includes('direzion') || s.paramnm?.toLowerCase().includes('dir')) &&
+    s.paramnm?.toLowerCase().includes('vento'));
+  if (velIdx === -1 || dirIdx === -1) return sensors;
+  const vel = sensors[velIdx];
+  const dir = sensors[dirIdx];
+  const combined = {
+    type: 'VENTO', paramnm: 'Vento', unitnm: vel.unitnm,
+    rows: vel.rows, dirRows: dir.rows, dirUnitnm: dir.unitnm, soglie: null, isWindCombined: true
+  };
+  const out = sensors.filter((_, i) => i !== velIdx && i !== dirIdx);
+  out.splice(Math.min(velIdx, dirIdx), 0, combined);
+  return out;
+}
+
+function renderWindCombined(stn, sensor) {
+  const velRows = sensor.rows;
+  const dirRows = sensor.dirRows || [];
+  const dirMap  = Object.fromEntries(dirRows.map(r => [r.dt, r.val]));
+  const last    = velRows[0];
+  const lastDir = last ? (dirMap[last.dt] ?? '—') : '—';
+
+  // Nomi dei settori per direzione vento
+  function windDir(deg) {
+    if (deg == null || isNaN(deg)) return '—';
+    const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+    return dirs[Math.round(deg / 22.5) % 16] + ' (' + Math.round(deg) + '°)';
+  }
+
+  const statHtml = `<div class="stat-row">
+    <div class="stat-card"><div class="val">${last ? last.val.toFixed(1) : '—'} ${sensor.unitnm}</div><div class="lbl">Vel. attuale</div></div>
+    <div class="stat-card"><div class="val">${windDir(typeof lastDir === 'number' ? lastDir : parseFloat(lastDir))}</div><div class="lbl">Dir. attuale</div></div>
+    <div class="stat-card"><div class="val">${velRows.length ? Math.max(...velRows.map(r=>r.val)).toFixed(1) : '—'} ${sensor.unitnm}</div><div class="lbl">Max 48h</div></div>
+    <div class="stat-card"><div class="val">${velRows.length ? (velRows.reduce((a,b)=>a+b.val,0)/velRows.length).toFixed(1) : '—'} ${sensor.unitnm}</div><div class="lbl">Media 48h</div></div>
+  </div>`;
+
+  const chartRows  = [...velRows].reverse();
+  const chartLabels = chartRows.map(r => r.label);
+  const chartVals   = chartRows.map(r => r.val);
+  const clr = TYPECOLOR['VENTO'];
+
+  const tableRows = velRows.map((r, i) => {
+    const dv = dirMap[r.dt];
+    return `<tr class="${i === 0 ? 'latest' : ''}">
+      <td>${r.label}</td>
+      <td>${r.val.toFixed(1)} ${sensor.unitnm}</td>
+      <td>${windDir(typeof dv === 'number' ? dv : parseFloat(dv))}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('panel-body').innerHTML = `
+    ${statHtml}
+    <div class="chart-wrap"><canvas id="sensorChart"></canvas></div>
+    <table class="data-table">
+      <thead><tr><th>Ora</th><th>Velocità (${sensor.unitnm})</th><th>Direzione</th></tr></thead>
+      <tbody>${tableRows}</tbody>
+    </table>`;
+
+  if (activeChart) { activeChart.destroy(); activeChart = null; }
+  const ctx = document.getElementById('sensorChart');
+  if (!ctx) return;
+  activeChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: chartLabels,
+      datasets: [{
+        label: 'Velocità vento (' + sensor.unitnm + ')',
+        data: chartVals,
+        borderColor: clr.border, backgroundColor: clr.fill,
+        borderWidth: 2, pointRadius: chartVals.length > 100 ? 0 : 3,
+        pointHoverRadius: 5, tension: 0.3, fill: true
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, zoom: { zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }, pan: { enabled: true, mode: 'x' } } },
+      scales: {
+        x: { ticks: { maxTicksLimit: 8, font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.04)' } },
+        y: { min: 0, ticks: { font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.04)' } }
+      }
+    }
+  });
+}
+
 function renderTabs(stn, sensors) {
+  sensors = mergeWindSensors(sensors);
+  // Riordina: Precipitazioni → Vento → resto
+  sensors.sort((a, b) => {
+    const pri = s => s.paramnm?.toLowerCase().includes('precipit') ? 0
+                   : s.isWindCombined                              ? 1
+                   : 2;
+    return pri(a) - pri(b);
+  });
   const tabsEl = document.getElementById('sensor-tabs');
   tabsEl.style.display = sensors.length > 1 ? 'flex' : 'none';
   tabsEl.innerHTML = sensors.length > 1
@@ -1153,6 +1277,7 @@ function switchTab(idx) {
 }
 
 function renderSensor(stn, sensor) {
+  if (sensor.isWindCombined) { renderWindCombined(stn, sensor); return; }
   const isLivello = sensor.type === 'LIVIDRO';
   const soglie    = isLivello ? (sensor.soglie || stn.soglie) : null;
   const rows = sensor.rows, vals = rows.map(r => r.val), unit = sensor.unitnm;
