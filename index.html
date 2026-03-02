@@ -567,6 +567,7 @@ const SOGLIA_CFG = [
   { key: 's3', label: 'Guardia 3', color: '#ef4444' }
 ];
 const TYPE_COLOR = {
+  VENTO:   { border: '#0ea5e9', fill: 'rgba(14,165,233,.15)' },
   LIVIDRO: { border: '#0e8a8a', fill: 'rgba(14,138,138,.15)' },
   PRECCUM: { border: '#0284c7', fill: 'rgba(2,132,199,.15)' },
   PORTATA: { border: '#7c3aed', fill: 'rgba(124,58,237,.15)' },
@@ -1189,33 +1190,32 @@ function renderWindCombined(stn, sensor) {
   const dirRows = sensor.dirRows || [];
   const dirMap  = Object.fromEntries(dirRows.map(r => [r.dt, r.val]));
   const last    = velRows[0];
-  const lastDir = last ? (dirMap[last.dt] ?? '—') : '—';
+  const lastDir = last ? dirMap[last.dt] : null;
 
-  // Nomi dei settori per direzione vento
   function windDir(deg) {
-    if (deg == null || isNaN(deg)) return '—';
+    if (deg == null || isNaN(Number(deg))) return '—';
+    const d = Number(deg);
     const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
-    return dirs[Math.round(deg / 22.5) % 16] + ' (' + Math.round(deg) + '°)';
+    return dirs[Math.round(d / 22.5) % 16] + ' (' + Math.round(d) + '°)';
   }
 
-  const statHtml = `<div class="stat-row">
-    <div class="stat-card"><div class="val">${last ? last.val.toFixed(1) : '—'} ${sensor.unitnm}</div><div class="lbl">Vel. attuale</div></div>
-    <div class="stat-card"><div class="val">${windDir(typeof lastDir === 'number' ? lastDir : parseFloat(lastDir))}</div><div class="lbl">Dir. attuale</div></div>
-    <div class="stat-card"><div class="val">${velRows.length ? Math.max(...velRows.map(r=>r.val)).toFixed(1) : '—'} ${sensor.unitnm}</div><div class="lbl">Max 48h</div></div>
-    <div class="stat-card"><div class="val">${velRows.length ? (velRows.reduce((a,b)=>a+b.val,0)/velRows.length).toFixed(1) : '—'} ${sensor.unitnm}</div><div class="lbl">Media 48h</div></div>
-  </div>`;
+  const velVals = velRows.map(r => r.val);
+  const maxVel  = velVals.length ? Math.max(...velVals).toFixed(1) : '—';
+  const avgVel  = velVals.length ? (velVals.reduce((a,b) => a+b, 0) / velVals.length).toFixed(1) : '—';
 
-  const chartRows  = [...velRows].reverse();
-  const chartLabels = chartRows.map(r => r.label);
-  const chartVals   = chartRows.map(r => r.val);
-  const clr = TYPECOLOR['VENTO'];
+  const statHtml = `<div class="stat-row">
+    <div class="stat-card"><div class="val">${last ? last.val.toFixed(1) + ' ' + sensor.unitnm : '—'}</div><div class="lbl">Vel. attuale</div></div>
+    <div class="stat-card"><div class="val">${windDir(lastDir)}</div><div class="lbl">Dir. attuale</div></div>
+    <div class="stat-card"><div class="val">${maxVel !== '—' ? maxVel + ' ' + sensor.unitnm : '—'}</div><div class="lbl">Max 48h</div></div>
+    <div class="stat-card"><div class="val">${avgVel !== '—' ? avgVel + ' ' + sensor.unitnm : '—'}</div><div class="lbl">Media 48h</div></div>
+  </div>`;
 
   const tableRows = velRows.map((r, i) => {
     const dv = dirMap[r.dt];
     return `<tr class="${i === 0 ? 'latest' : ''}">
       <td>${r.label}</td>
       <td>${r.val.toFixed(1)} ${sensor.unitnm}</td>
-      <td>${windDir(typeof dv === 'number' ? dv : parseFloat(dv))}</td>
+      <td>${windDir(dv)}</td>
     </tr>`;
   }).join('');
 
@@ -1227,27 +1227,39 @@ function renderWindCombined(stn, sensor) {
       <tbody>${tableRows}</tbody>
     </table>`;
 
-  if (activeChart) { activeChart.destroy(); activeChart = null; }
-  const ctx = document.getElementById('sensorChart');
-  if (!ctx) return;
+  if (activeChart) activeChart.destroy();
+  const ctx = document.getElementById('sensorChart').getContext('2d');
+  Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+  Chart.defaults.color = '#64748b';
+  const clr = TYPE_COLOR['VENTO'];
+  const chartRows = [...velRows].reverse();
   activeChart = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: chartLabels,
+      labels: chartRows.map(r => r.label),
       datasets: [{
         label: 'Velocità vento (' + sensor.unitnm + ')',
-        data: chartVals,
+        data: chartRows.map(r => r.val),
         borderColor: clr.border, backgroundColor: clr.fill,
-        borderWidth: 2, pointRadius: chartVals.length > 100 ? 0 : 3,
-        pointHoverRadius: 5, tension: 0.3, fill: true
+        borderWidth: 2, pointRadius: chartRows.length > 100 ? 0 : 3,
+        pointHoverRadius: 5, tension: 0.3, fill: true, order: 10
       }]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, zoom: { zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }, pan: { enabled: true, mode: 'x' } } },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(15,23,42,0.9)', padding: 10, cornerRadius: 8,
+          titleFont: { size: 13 }, bodyFont: { size: 12 },
+          callbacks: { label: item => 'Velocità: ' + item.raw.toFixed(1) + ' ' + sensor.unitnm }
+        },
+        zoom: { zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }, pan: { enabled: true, mode: 'x' } }
+      },
       scales: {
-        x: { ticks: { maxTicksLimit: 8, font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.04)' } },
-        y: { min: 0, ticks: { font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.04)' } }
+        x: { ticks: { maxTicksLimit: 6, maxRotation: 0, font: { size: 10 } }, grid: { color: '#f1f5f9' }, border: { display: false } },
+        y: { min: 0, title: { display: true, text: '(' + sensor.unitnm + ')', font: { size: 10 } }, grid: { color: '#f1f5f9' }, border: { display: false } }
       }
     }
   });
@@ -1262,6 +1274,7 @@ function renderTabs(stn, sensors) {
                    : 2;
     return pri(a) - pri(b);
   });
+  currentSensors = sensors;
   const tabsEl = document.getElementById('sensor-tabs');
   tabsEl.style.display = sensors.length > 1 ? 'flex' : 'none';
   tabsEl.innerHTML = sensors.length > 1
