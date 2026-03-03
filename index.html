@@ -1467,7 +1467,15 @@ function showError(msg) {
 }
 
 // ── AUTO-REFRESH ──────────────────────────────────────────────────────────────
-function getNextHalfHour() { const halfMs = 30*60*1000, margin = 2*60*1000; return Math.ceil((Date.now()+1000)/halfMs)*halfMs+margin; }
+function getNextHalfHour() {
+  const halfMs = 30 * 60 * 1000;
+  const margin = 3 * 60 * 1000; // +3 min dopo :00/:30 → scatta a :03/:33
+  const now = Date.now();
+  let next = Math.ceil(now / halfMs) * halfMs;
+  if (next <= now) next += halfMs; // evita di sparare subito se siamo esatti a :00/:30
+  return next + margin;
+}
+
 function formatCountdown(ms) { if (ms <= 0) return 'agg...'; const s = Math.floor(ms/1000); return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
 function scheduleRefresh() { nextRefresh = getNextHalfHour(); tickCountdown(); }
 function tickCountdown() {
