@@ -596,10 +596,22 @@
 const ARPA_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="13" height="13"><rect x="3" y="3" width="1.8" height="12.4" rx=".9" fill="white"/><rect x="3" y="14.2" width="10.5" height="1.8" rx=".9" fill="white"/><path d="M4 3.5 Q9.5 0.5 14 5.5" stroke="white" stroke-width="1.8" fill="none" stroke-linecap="round"/><line x1="6.5" y1="4.6" x2="6.5" y2="14.2" stroke="white" stroke-width="1.1" stroke-linecap="round"/><line x1="9.2" y1="3.4" x2="9.2" y2="14.2" stroke="white" stroke-width="1.1" stroke-linecap="round"/><line x1="12" y1="5" x2="12" y2="14.2" stroke="white" stroke-width="1.1" stroke-linecap="round"/></svg>';
 
 const STATIONS = [
-  { id: 292, osmNodeId: '12984401383', name: 'Muson dei Sassi', subtitle: 'Castelfranco Veneto', lat: 45.66983651, lon: 11.92027581, soglie: { s1: 1.8, s2: 2.5, s3: 2.9 } },
-  { id: 653, osmNodeId: '12984421539', name: 'Avenale',         subtitle: 'Castelfranco Veneto', lat: 45.6540,      lon: 11.9850,       soglie: { s1: 1.5, s2: 1.8, s3: 2.1 } },
-  { id: 102, osmNodeId: 12984403717, name: 'Castelfranco Veneto', subtitle: 'Staz. meteorologica', lat: 45.6716, lon: 11.9258, xmlUrl: 'https://meteo.arpa.veneto.it/meteo/dati_meteo/xml/0102.xml', soglie: null }
+  { id: 292, osmNodeId: '1.2984401383e+10', name: 'Muson dei Sassi', subtitle: 'Castelfranco Veneto',
+    lat: 45.66983651, lon: 11.92027581,
+    xmlUrl: 'https://www.arpa.veneto.it/api/risorse/data-meteo/xml/Ultime48ore.xml', // ← aggiunto
+    soglie: { s1: 1.8, s2: 2.5, s3: 2.9 } },
+
+  { id: 653, osmNodeId: '1.2984421539e+10', name: 'Avenale', subtitle: 'Castelfranco Veneto',
+    lat: 45.6540, lon: 11.9850,
+    xmlUrl: 'https://www.arpa.veneto.it/api/risorse/data-meteo/xml/Ultime48ore.xml', // ← aggiunto
+    soglie: { s1: 1.5, s2: 1.8, s3: 2.1 } },
+
+  { id: 102, osmNodeId: 1.2984403717e+10, name: 'Castelfranco Veneto', subtitle: 'Staz. meteorologica',
+    lat: 45.6716, lon: 11.9258,
+    xmlUrl: 'https://meteo.arpa.veneto.it/meteo/dati_meteo/xml/0102.xml',
+    soglie: null }
 ];
+
 const SOGLIA_CFG = [
   { key: 's1', label: 'Guardia 1', color: '#eab308' },
   { key: 's2', label: 'Guardia 2', color: '#f97316' },
@@ -1247,7 +1259,7 @@ async function loadStation(stn, silent = false) {
   try {
     const xmlUrl = stn.xmlUrl ?? XML_URL;
     const xml = await fetchText(xmlUrl);
-    const sensors = parseXML(xml, stn.xmlUrl ? null : stn.id);
+    const sensors = parseXML(xml, stn.id);
     if (sensors?.length > 0) {
 		currentSensors = sensors;
 		renderTabs(stn, sensors);
