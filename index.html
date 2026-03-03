@@ -1208,6 +1208,31 @@ async function fetchText(url) {
 }
 
 
+function scheduleStaleRetry(stn, sensors) {
+  // Prendi il timestamp più recente tra tutti i sensori
+  const latestDt = sensors
+    .flatMap(s => s.rows ?? [])
+    .map(r => r.dt)
+    .sort()
+    .at(-1);
+  if (!latestDt) return;
+
+  // Converte YYYYMMDDHHMI in Date
+  const y = latestDt.slice(0,4), mo = latestDt.slice(4,6), d = latestDt.slice(6,8);
+  const h = latestDt.slice(8,10), mi = latestDt.slice(10,12);
+  const latestDate = new Date(`${y}-${mo}-${d}T${h}:${mi}:00`);
+  const ageMin = (Date.now() - latestDate.getTime()) / 60000;
+
+  // Se il dato ha più di 20 minuti, riprova tra 5 minuti
+  if (ageMin > 20) {
+    console.log(`[ARPAV] Dato stale (${Math.round(ageMin)} min), retry tra 5 min`);
+    setTimeout(() => {
+      if (currentStnRef?.id === stn.id) loadStation(stn, true);
+    }, 5 * 60 * 1000);
+  }
+}
+
+
 async function loadStation(stn, silent = false) {
   currentId = stn.id; currentStnRef = stn;
   setActiveMarker(stn.id);
@@ -1223,7 +1248,12 @@ async function loadStation(stn, silent = false) {
     const xmlUrl = stn.xmlUrl ?? XML_URL;
     const xml = await fetchText(xmlUrl);
     const sensors = parseXML(xml, stn.xmlUrl ? null : stn.id);
-    if (sensors?.length > 0) { currentSensors = sensors; renderTabs(stn, sensors); return; }
+    if (sensors?.length > 0) {
+		currentSensors = sensors;
+		renderTabs(stn, sensors);
+		if (silent) scheduleStaleRetry(stn, sensors);
+		return;
+	}
   } catch (_) {}
   try {
     const csv = await fetchText(`${CSV_BASE}${String(stn.id).padStart(4, '0')}.csv`);
