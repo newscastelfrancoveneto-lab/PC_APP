@@ -1181,10 +1181,14 @@ function decodeXml(buf) {
 }
 
 async function fetchText(url) {
+  // URL con cache-busting per i proxy
+  const urlCacheBust = url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now();
+  
   try {
     const r = await fetch(url, { signal: AbortSignal.timeout(5000), cache: 'no-store' });
     if (r.ok) return decodeXml(await r.arrayBuffer());
   } catch {}
+  
   const proxies = [
     'https://corsproxy.io/?',
     'https://api.allorigins.win/raw?url=',
@@ -1193,12 +1197,16 @@ async function fetchText(url) {
   ];
   for (const px of proxies) {
     try {
-      const r2 = await fetch(px + encodeURIComponent(url), { signal: AbortSignal.timeout(10000) });
+      const r2 = await fetch(px + encodeURIComponent(urlCacheBust), { // ← usa URL con timestamp
+        signal: AbortSignal.timeout(10000),
+        cache: 'no-store'  // ← anche questo
+      });
       if (r2.ok) return decodeXml(await r2.arrayBuffer());
     } catch {}
   }
   throw new Error('Failed to fetch');
 }
+
 
 async function loadStation(stn, silent = false) {
   currentId = stn.id; currentStnRef = stn;
@@ -1248,10 +1256,13 @@ function parseXML(xmlText, stationId) {
     const g3 = parseFloat(sensore.querySelector('GUARDIA3')?.textContent);
     const rows = [];
     for (const dati of sensore.querySelectorAll('DATI')) {
-      const ist = dati.getAttribute('ISTANTE') || '';
-      const vm  = parseFloat(dati.querySelector('VM')?.textContent?.trim());
-      if (ist && !isNaN(vm)) rows.push({ dt: ist, label: fmtIstante(ist), val: vm });
-    }
+	  const ist = dati.getAttribute('ISTANTE') || '';
+	  const vmRaw = dati.querySelector('VM')?.textContent?.trim();
+	  const vm = parseFloat(vmRaw);
+	  const hasVal = !(!vmRaw || vmRaw === '--' || vmRaw === '' || isNaN(vm));
+	  if (ist) rows.push({ dt: ist, label: fmtIstante(ist), val: hasVal ? vm : null });
+	}
+
     rows.sort((a, b) => a.dt > b.dt ? -1 : a.dt < b.dt ? 1 : 0);
     if (rows.length > 0) sensors.push({ type, paramnm, unitnm, rows, soglie: !isNaN(g1) ? { s1: g1, s2: g2, s3: g3 } : null });
   }
@@ -1407,11 +1418,12 @@ function renderSensor(stn, sensor) {
   if (sensor.isWindCombined) { renderWindCombined(stn, sensor); return; }
   const isLivello = sensor.type === 'LIVIDRO';
   const soglie    = isLivello ? (sensor.soglie || stn.soglie) : null;
-  const rows = sensor.rows, vals = rows.map(r => r.val), unit = sensor.unitnm;
-  const last = vals[0];
-  const minV = Math.min(...vals).toFixed(3);
-  const maxV = Math.max(...vals).toFixed(3);
-  const avg  = (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(3);
+  const rows = sensor.rows, unit = sensor.unitnm;
+  const vals = rows.map(r => r.val).filter(v => v !== null); // ← filtra solo per le stats
+  const last = rows[0]?.val ?? null;
+  const minV = vals.length ? Math.min(...vals).toFixed(3) : '—';
+  const maxV = vals.length ? Math.max(...vals).toFixed(3) : '—';
+  const avg  = vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(3) : '—';
 
   let legendHtml = '';
   if (isLivello && soglie) {
@@ -1450,7 +1462,7 @@ function renderSensor(stn, sensor) {
 
   document.getElementById('panel-body').innerHTML =
     `<div class="stat-row">
-      <div class="stat-card"><div class="val">${last?.toFixed(3) ?? '–'}</div><div class="lbl">Ultimo (${unit})</div></div>
+      <div class="stat-card"><div class=\"val\">${last !== null ? last.toFixed(3) : '—'}</div><div class="lbl">Ultimo (${unit})</div></div>
       <div class="stat-card"><div class="val">${minV}</div><div class="lbl">Min (${unit})</div></div>
       <div class="stat-card"><div class="val">${maxV}</div><div class="lbl">Max (${unit})</div></div>
       <div class="stat-card"><div class="val">${avg}</div><div class="lbl">Media (${unit})</div></div>
@@ -1471,7 +1483,7 @@ function renderSensor(stn, sensor) {
       else if (r.val >= soglie.s2) tr.classList.add('over-s2');
       else if (r.val >= soglie.s1) tr.classList.add('over-s1');
     }
-    tr.innerHTML = `<td>${r.label}</td><td><strong>${r.val.toFixed(3)}</strong></td>`;
+    tr.innerHTML = `<td>${r.label}</td><td><strong>${r.val !== null ? r.val.toFixed(3) : '—'}</strong></td>`;
     tbody.appendChild(tr);
   });
 
