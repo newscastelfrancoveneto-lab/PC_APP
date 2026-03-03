@@ -598,17 +598,20 @@ const ARPA_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" wi
 const STATIONS = [
   { id: 292, osmNodeId: '1.2984401383e+10', name: 'Muson dei Sassi', subtitle: 'Castelfranco Veneto',
     lat: 45.66983651, lon: 11.92027581,
-    xmlUrl: 'https://meteo.arpa.veneto.it/meteo/dati_meteo/xml/0292.xml', // ← aggiunto
+    xmlUrl: 'https://meteo.arpa.veneto.it/meteo/dati_meteo/xml/0292.xml',
+    refreshInterval: 30,
     soglie: { s1: 1.8, s2: 2.5, s3: 2.9 } },
 
   { id: 653, osmNodeId: '1.2984421539e+10', name: 'Avenale', subtitle: 'Castelfranco Veneto',
-    lat: 45.6747453, lon: 11.9285348,  
-    xmlUrl: 'https://meteo.arpa.veneto.it/meteo/dati_meteo/xml/0653.xml', // ← aggiunto
+    lat: 45.6747453, lon: 11.9285348,
+    xmlUrl: 'https://meteo.arpa.veneto.it/meteo/dati_meteo/xml/0653.xml',
+    refreshInterval: 10,
     soglie: { s1: 1.5, s2: 1.8, s3: 2.1 } },
 
   { id: 102, osmNodeId: 1.2984403717e+10, name: 'Castelfranco Veneto', subtitle: 'Staz. meteorologica',
     lat: 45.6716, lon: 11.9258,
     xmlUrl: 'https://meteo.arpa.veneto.it/meteo/dati_meteo/xml/0102.xml',
+    refreshInterval: 30,
     soglie: null }
 ];
 
@@ -1235,9 +1238,8 @@ function scheduleStaleRetry(stn, sensors) {
   const latestDate = new Date(`${y}-${mo}-${d}T${h}:${mi}:00`);
   const ageMin = (Date.now() - latestDate.getTime()) / 60000;
 
-  // Se il dato ha più di 20 minuti, riprova tra 5 minuti
-  if (ageMin > 10) {
-    console.log(`[ARPAV] Dato stale (${Math.round(ageMin)} min), retry tra 5 min`);
+  const staleThreshold = (stn.refreshInterval ?? 30) * 0.5; // metà dell'intervallo
+  if (ageMin > staleThreshold) {
     setTimeout(() => {
       if (currentStnRef?.id === stn.id) loadStation(stn, true);
     }, 60 * 1000);
@@ -1588,9 +1590,23 @@ function getNextHalfHour() {
   return prevBoundary + halfMs + margin;
 }
 
+function getNextRefresh(intervalMin) {
+  const intMs  = intervalMin * 60 * 1000;
+  const margin = 30 * 1000; // 30 secondi
+  const now    = Date.now();
+  const prev   = Math.floor(now / intMs) * intMs;
+  const candidate = prev + margin;
+  return candidate > now ? candidate : prev + intMs + margin;
+}
+
 
 function formatCountdown(ms) { if (ms <= 0) return 'agg...'; const s = Math.floor(ms/1000); return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
-function scheduleRefresh() { nextRefresh = getNextHalfHour(); tickCountdown(); }
+function scheduleRefresh() {
+  const interval = currentStnRef?.refreshInterval ?? 30;
+  const next = getNextRefresh(interval);
+  nextRefresh = next;
+  tickCountdown();
+}
 function tickCountdown() {
   const rem = nextRefresh - Date.now();
   document.getElementById('countdown-label').textContent = formatCountdown(rem);
