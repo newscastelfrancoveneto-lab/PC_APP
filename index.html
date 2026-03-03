@@ -1224,11 +1224,11 @@ function scheduleStaleRetry(stn, sensors) {
   const ageMin = (Date.now() - latestDate.getTime()) / 60000;
 
   // Se il dato ha più di 20 minuti, riprova tra 5 minuti
-  if (ageMin > 20) {
+  if (ageMin > 10) {
     console.log(`[ARPAV] Dato stale (${Math.round(ageMin)} min), retry tra 5 min`);
     setTimeout(() => {
       if (currentStnRef?.id === stn.id) loadStation(stn, true);
-    }, 5 * 60 * 1000);
+    }, 60 * 1000);
   }
 }
 
@@ -1564,7 +1564,7 @@ function showError(msg) {
 // ── AUTO-REFRESH ──────────────────────────────────────────────────────────────
 function getNextHalfHour() {
   const halfMs = 30 * 60 * 1000;
-  const margin = 3 * 60 * 1000;
+  const margin = 30 * 1000;
   const now = Date.now();
   // Calcola la mezza-ora tonda PRECEDENTE (non la prossima)
   const prevBoundary = Math.floor(now / halfMs) * halfMs;
