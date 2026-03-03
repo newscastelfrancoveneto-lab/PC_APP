@@ -992,6 +992,18 @@ const LayerSwitcher = L.Control.extend({
 		  </svg>
 		</button>
 
+
+      <button id="gps-btn" class="layer-control-toggle" title="La mia posizione">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3" fill="currentColor"></circle>
+          <circle cx="12" cy="12" r="8"></circle>
+          <line x1="12" y1="2" x2="12" y2="4"></line>
+          <line x1="12" y1="20" x2="12" y2="22"></line>
+          <line x1="2" y1="12" x2="4" y2="12"></line>
+          <line x1="20" y1="12" x2="22" y2="12"></line>
+        </svg>
+      </button>
+
       <div class="layer-control-menu">
         <div class="layer-control-header">Livelli Mappa</div>
         <div class="layer-control-section-title first">Idrografia</div>
@@ -1058,6 +1070,33 @@ const LayerSwitcher = L.Control.extend({
 		refreshBtn.style.opacity = '1';
 	  }
 });
+
+
+    // ── GPS: Posizione utente ───────────────────────────────────────────────
+    const gpsBtn = container.querySelector('#gps-btn');
+    let userMarker = null;
+    let userCircle = null;
+
+    gpsBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      gpsBtn.disabled = true;
+      gpsBtn.style.opacity = '0.5';
+      map.locate({ setView: true, maxZoom: 16 });
+    });
+
+    map.on('locationfound', (e) => {
+      gpsBtn.disabled = false;
+      gpsBtn.style.opacity = '1';
+      if (userMarker) { map.removeLayer(userMarker); map.removeLayer(userCircle); }
+      userCircle = L.circle(e.latlng, { radius: e.accuracy / 2, color: '#2563eb', fillColor: '#3b82f6', fillOpacity: 0.15, weight: 1.5 }).addTo(map);
+      userMarker = L.circleMarker(e.latlng, { radius: 8, color: '#ffffff', weight: 2.5, fillColor: '#2563eb', fillOpacity: 1 }).addTo(map).bindPopup('📍 Sei qui').openPopup();
+    });
+
+    map.on('locationerror', () => {
+      gpsBtn.disabled = false;
+      gpsBtn.style.opacity = '1';
+      alert('Impossibile rilevare la posizione. Controlla i permessi GPS del browser.');
+    });
 
     map.on('click', () => menu.classList.remove('open'));
     return container;
