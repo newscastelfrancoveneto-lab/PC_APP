@@ -648,6 +648,7 @@ let timerRunning = false;
 let waitingForFreshData = false;
 let globalRefreshInProgress = false;
 let lastHalfHourRefresh = null;
+let globalRefreshTimerId = null;
 const stationLastTimestamp = {};
 const stationLastSignature = {};
 const stationRefreshState = {};
@@ -1437,16 +1438,21 @@ async function loadStation(stn, options = false) {
       const latestSignature = getLatestSensorSignature(sensors);
       const refreshState = getStationRefreshState(stn.id);
       const hasPayloadChanges = latestSignature !== stationLastSignature[stn.id];
-      const hasNewData = !opts.waitForNewData || !opts.minTimestamp || isTimestampAfter(latestTs, opts.minTimestamp) || hasPayloadChanges;
-      if (refreshState?.waiting && (isTimestampAfter(latestTs, refreshState.baselineTimestamp) || hasPayloadChanges)) {
+      const hasReachedTargetTimestamp = !opts.minTimestamp || isTimestampAtLeast(latestTs, opts.minTimestamp);
+      const hasNewData = opts.waitForNewData ? hasReachedTargetTimestamp : true;
+      if (refreshState?.waiting && isTimestampAtLeast(latestTs, refreshState.baselineTimestamp)) {
         setStationRefreshState(stn.id, { waiting: false, baselineTimestamp: null });
+        if (currentStnRef?.id === stn.id) refreshVisibleStationTimerState();
       }
       if (hasNewData) {
         currentSensors = sensors;
         stationLastTimestamp[stn.id] = latestTs;
         stationLastSignature[stn.id] = latestSignature;
         if (!opts.background || currentStnRef?.id === stn.id) renderTabs(stn, sensors);
+      } else if (!opts.waitForNewData && hasPayloadChanges) {
+        stationLastSignature[stn.id] = latestSignature;
       }
+      ensureStationBoundaryWaiting(stn.id, latestTs);
       if (silent && !opts.waitForNewData) scheduleStaleRetry(stn, sensors);
       return { ok: true, hasNewData, latestTs };
     }
@@ -1460,16 +1466,21 @@ async function loadStation(stn, options = false) {
       const latestSignature = getLatestSensorSignature(fallbackSensors);
       const refreshState = getStationRefreshState(stn.id);
       const hasPayloadChanges = latestSignature !== stationLastSignature[stn.id];
-      const hasNewData = !opts.waitForNewData || !opts.minTimestamp || isTimestampAfter(latestTs, opts.minTimestamp) || hasPayloadChanges;
-      if (refreshState?.waiting && (isTimestampAfter(latestTs, refreshState.baselineTimestamp) || hasPayloadChanges)) {
+      const hasReachedTargetTimestamp = !opts.minTimestamp || isTimestampAtLeast(latestTs, opts.minTimestamp);
+      const hasNewData = opts.waitForNewData ? hasReachedTargetTimestamp : true;
+      if (refreshState?.waiting && isTimestampAtLeast(latestTs, refreshState.baselineTimestamp)) {
         setStationRefreshState(stn.id, { waiting: false, baselineTimestamp: null });
+        if (currentStnRef?.id === stn.id) refreshVisibleStationTimerState();
       }
       if (hasNewData) {
         currentSensors = fallbackSensors;
         stationLastTimestamp[stn.id] = latestTs;
         stationLastSignature[stn.id] = latestSignature;
         if (!opts.background || currentStnRef?.id === stn.id) renderTabs(stn, currentSensors);
+      } else if (!opts.waitForNewData && hasPayloadChanges) {
+        stationLastSignature[stn.id] = latestSignature;
       }
+      ensureStationBoundaryWaiting(stn.id, latestTs);
       return { ok: true, hasNewData, latestTs };
     }
   } catch (e) { if (!silent) showError(e.message); return { ok: false, hasNewData: false }; }
@@ -1832,6 +1843,45 @@ function scheduleRefresh() {
   tickCountdown();
 }
 
+function refreshVisibleStationTimerState() {
+  if (!currentStnRef?.id) return;
+  const state = getStationRefreshState(currentStnRef.id);
+  if (state?.waiting) {
+    waitingForFreshData = true;
+    timerRunning = true;
+    nextRefresh = state.nextRefresh || getNextHalfHourBoundary();
+    setBadgeWaitingState(true);
+    tickCountdown();
+    return;
+  }
+  scheduleRefresh();
+}
+
+function ensureStationBoundaryWaiting(stationId, latestTs) {
+  if (!stationId || !latestTs) return;
+  const boundaryTs = getCurrentHalfHourBoundary();
+  const boundaryStamp = toArpavTimestamp(boundaryTs);
+  if (isTimestampAtLeast(latestTs, boundaryStamp)) return;
+
+  const currentState = getStationRefreshState(stationId) || {};
+  const alreadyWaitingForBoundary = currentState.waiting
+    && currentState.nextRefresh === boundaryTs
+    && normalizeArpavTimestamp(currentState.baselineTimestamp) === normalizeArpavTimestamp(boundaryStamp);
+
+  if (!alreadyWaitingForBoundary) {
+    setStationRefreshState(stationId, {
+      waiting: true,
+      nextRefresh: boundaryTs,
+      baselineTimestamp: boundaryStamp
+    });
+    if (currentStnRef?.id === stationId) refreshVisibleStationTimerState();
+  }
+
+  if (!globalRefreshInProgress) {
+    triggerGlobalHalfHourRefresh(boundaryTs);
+  }
+}
+
 function resumeRefreshState() {
   if (!currentStnRef?.id) return scheduleRefresh();
 
@@ -1919,13 +1969,13 @@ async function tickCountdown() {
 async function triggerGlobalHalfHourRefresh(boundaryTs) {
   if (globalRefreshInProgress) return;
   globalRefreshInProgress = true;
+  lastHalfHourRefresh = boundaryTs;
 
   STATIONS.forEach(stn => {
-    const knownLatest = stationLastTimestamp[stn.id] || null;
     setStationRefreshState(stn.id, {
       waiting: true,
       nextRefresh: boundaryTs,
-      baselineTimestamp: knownLatest || toArpavTimestamp(boundaryTs)
+      baselineTimestamp: toArpavTimestamp(boundaryTs)
     });
   });
 
@@ -1952,17 +2002,22 @@ async function triggerGlobalHalfHourRefresh(boundaryTs) {
   }
 }
 
-function initGlobalRefreshScheduler() {
-  setInterval(() => {
-    const boundary = getCurrentHalfHourBoundary();
-    if (lastHalfHourRefresh === boundary) return;
+function scheduleNextGlobalRefresh() {
+  if (globalRefreshTimerId) clearTimeout(globalRefreshTimerId);
+  const nextBoundary = getNextHalfHourBoundary();
+  const delay = Math.max(500, nextBoundary - Date.now() + 500);
+  globalRefreshTimerId = setTimeout(() => {
+    triggerGlobalHalfHourRefresh(nextBoundary);
+    scheduleNextGlobalRefresh();
+  }, delay);
+}
 
-    const ageMs = Date.now() - boundary;
-    if (ageMs >= 0 && ageMs < (31 * 60 * 1000)) {
-      lastHalfHourRefresh = boundary;
-      triggerGlobalHalfHourRefresh(boundary);
-    }
-  }, 15000);
+function initGlobalRefreshScheduler() {
+  const currentBoundary = getCurrentHalfHourBoundary();
+  if (lastHalfHourRefresh !== currentBoundary) {
+    triggerGlobalHalfHourRefresh(currentBoundary);
+  }
+  scheduleNextGlobalRefresh();
 }
 
 
