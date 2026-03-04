@@ -843,30 +843,32 @@ const OVERPASS_ENDPOINTS = [
 ];
 
 async function overpassFetch(query) {
-  // Puntiamo direttamente all'API ufficiale che supporta CORS nativamente
-  const endpoint = 'https://overpass-api.de/api/interpreter';
-  
-  try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      // Passiamo la query nel corpo della richiesta
-      body: 'data=' + encodeURIComponent(query),
-      // Timeout di sicurezza
-      signal: AbortSignal.timeout(25000)
-    });
+    // Usiamo l'endpoint principale di Overpass
+    const endpoint = 'https://overpass-api.de/api/interpreter';
+    
+    try {
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                // Questo header è fondamentale per far capire a Overpass che inviamo un form
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            // La query DEVE essere preceduta da "data=" altrimenti dà errore 400
+            body: 'data=' + encodeURIComponent(query),
+            signal: AbortSignal.timeout(30000) // 30 secondi di timeout
+        });
 
-    if (!response.ok) {
-      throw new Error(`Errore API Overpass: ${response.status}`);
+        if (!response.ok) {
+            // Se dà ancora errore, leggiamo il testo dell'errore dal server
+            const errorBody = await response.text();
+            throw new Error(`Overpass 400: ${errorBody}`);
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error("Errore fetch OSM:", error);
+        throw error;
     }
-
-    return await response.json();
-  } catch (error) {
-    console.error("Errore durante il fetch OSM:", error);
-    throw error;
-  }
 }
 
 
