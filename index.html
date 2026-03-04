@@ -1590,23 +1590,28 @@ function getNextHalfHour() {
 }
 
 function getNextRefresh(intervalMin) {
-    const intMs = intervalMin * 60 * 1000;
+    const intervalMs = intervalMin * 60 * 1000;  // es. 10 min = 600000 ms
     const now = Date.now();
-    // Slot tondo precedente (es. 09:30, 09:40 per interval=10)
-    const prevSlot = Math.floor(now / intMs) * intMs;
-    const candidate = prevSlot + 30 * 1000; // +30s margine
+    
+    // Slot tondo precedente (es. 10:10, 10:20...)
+    const prevSlot = Math.floor(now / intervalMs) * intervalMs;
+    const candidate = prevSlot + 30 * 1000;  // +30s per refresh
     
     if (candidate > now) {
         return candidate;
     }
-    // Slot successivo
-    return prevSlot + intMs + 30 * 1000;
+    return prevSlot + intervalMs + 30 * 1000;  // prossimo slot
 }
 
+function formatCountdown(ms) {
+    if (ms < 0 || isNaN(ms)) return '--:--';
+    const mins = Math.floor(ms / 60);
+    const secs = Math.floor(ms % 60);
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
 
-
-function formatCountdown(ms) { if (ms <= 0) return 'agg...'; const s = Math.floor(ms/1000); return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
-function scheduleRefresh() {
+	
+  function scheduleRefresh() {
   const interval = currentStnRef?.refreshInterval ?? 30;
   const next = getNextRefresh(interval);
   nextRefresh = next;
