@@ -649,6 +649,7 @@ let waitingForFreshData = false;
 let globalRefreshInProgress = false;
 let lastHalfHourRefresh = null;
 const stationLastTimestamp = {};
+const stationLastSignature = {};
 const stationRefreshState = {};
 const markerRefs = {};
 
@@ -1433,14 +1434,17 @@ async function loadStation(stn, options = false) {
     const sensors = parseXML(xml, stn.id);
     if (sensors?.length > 0) {
       const latestTs = getLatestSensorTimestamp(sensors);
+      const latestSignature = getLatestSensorSignature(sensors);
       const refreshState = getStationRefreshState(stn.id);
-      const hasNewData = !opts.waitForNewData || !opts.minTimestamp || isTimestampAfter(latestTs, opts.minTimestamp);
-      if (refreshState?.waiting && isTimestampAfter(latestTs, refreshState.baselineTimestamp)) {
+      const hasPayloadChanges = latestSignature !== stationLastSignature[stn.id];
+      const hasNewData = !opts.waitForNewData || !opts.minTimestamp || isTimestampAfter(latestTs, opts.minTimestamp) || hasPayloadChanges;
+      if (refreshState?.waiting && (isTimestampAfter(latestTs, refreshState.baselineTimestamp) || hasPayloadChanges)) {
         setStationRefreshState(stn.id, { waiting: false, baselineTimestamp: null });
       }
       if (hasNewData) {
         currentSensors = sensors;
         stationLastTimestamp[stn.id] = latestTs;
+        stationLastSignature[stn.id] = latestSignature;
         if (!opts.background || currentStnRef?.id === stn.id) renderTabs(stn, sensors);
       }
       if (silent && !opts.waitForNewData) scheduleStaleRetry(stn, sensors);
@@ -1453,14 +1457,17 @@ async function loadStation(stn, options = false) {
     if (rows?.length > 0) {
       const fallbackSensors = [{ type: 'LIVIDRO', paramnm: 'Livello idrometrico', unitnm: 'm', rows }];
       const latestTs = getLatestSensorTimestamp(fallbackSensors);
+      const latestSignature = getLatestSensorSignature(fallbackSensors);
       const refreshState = getStationRefreshState(stn.id);
-      const hasNewData = !opts.waitForNewData || !opts.minTimestamp || isTimestampAfter(latestTs, opts.minTimestamp);
-      if (refreshState?.waiting && isTimestampAfter(latestTs, refreshState.baselineTimestamp)) {
+      const hasPayloadChanges = latestSignature !== stationLastSignature[stn.id];
+      const hasNewData = !opts.waitForNewData || !opts.minTimestamp || isTimestampAfter(latestTs, opts.minTimestamp) || hasPayloadChanges;
+      if (refreshState?.waiting && (isTimestampAfter(latestTs, refreshState.baselineTimestamp) || hasPayloadChanges)) {
         setStationRefreshState(stn.id, { waiting: false, baselineTimestamp: null });
       }
       if (hasNewData) {
         currentSensors = fallbackSensors;
         stationLastTimestamp[stn.id] = latestTs;
+        stationLastSignature[stn.id] = latestSignature;
         if (!opts.background || currentStnRef?.id === stn.id) renderTabs(stn, currentSensors);
       }
       return { ok: true, hasNewData, latestTs };
@@ -1849,6 +1856,19 @@ function getLatestSensorTimestamp(sensors) {
     .at(-1) || null;
 }
 
+function getLatestSensorSignature(sensors) {
+  const snapshot = (sensors ?? []).map(sensor => {
+    const last = sensor?.rows?.[0] || null;
+    return {
+      type: sensor?.type || null,
+      paramnm: sensor?.paramnm || null,
+      lastDt: last?.dt || null,
+      lastVal: Number.isFinite(last?.val) ? Number(last.val.toFixed(4)) : null
+    };
+  });
+  return JSON.stringify(snapshot);
+}
+
 async function tickCountdown() {
   if (!timerRunning || !currentStnRef) return;
 
@@ -2038,44 +2058,53 @@ function getAllertaSignature(data) {
   });
 }
 
-async function loadAllerta() {
+function renderAllerta(d) {
+  if (!d || !d.idr) return;
+
+  const signature = getAllertaSignature(d);
+  lastAllertaSignature = signature;
+
+  const bar = document.getElementById('allerta-bar');
+  bar.classList.add('visible');
+  bar.style.background = allertaBgColor(d.idr, d.idro, d.temp);
+  updatePanelTop();
+
+  ['idr','idro','temp'].forEach(k => {
+    const el = document.getElementById('bar-bollino-' + k);
+    const lbl = document.getElementById('bar-label-' + k);
+    if (el) el.style.background = ALLERTA_COLORS[d[k]] || '#64748b';
+    if (lbl) lbl.textContent = ({ idr: 'Idraulico', idro: 'Idrogeologico', temp: 'Temporali' })[k];
+  });
+
+  document.getElementById('allerta-periodo').textContent = d.periodo || '—';
+  document.getElementById('allerta-meteo').textContent   = d.meteo   || '—';
+  document.getElementById('allerta-suolo').textContent   = d.suolo   || '—';
+
+  const rowsEl = document.getElementById('allerta-rows');
+  rowsEl.innerHTML = [
+    { key: 'idr',  label: 'Rischio Idraulico' },
+    { key: 'idro', label: 'Rischio Idrogeologico' },
+    { key: 'temp', label: 'Rischio Idrogeologico per Temporali' }
+  ].map(r => `
+    <div class="allerta-row">
+      <div class="bollino-lg" style="background:${ALLERTA_COLORS[d[r.key]] || '#64748b'}"></div>
+      <span class="label">${r.label}</span>
+    </div>`).join('');
+
+  setTimeout(() => map.invalidateSize(), 300);
+}
+
+async function loadAllerta(data = null) {
   try {
-    const res = await fetch(API_BASE + '/api/allerta');
+    if (data) {
+      renderAllerta(data);
+      return;
+    }
+
+    const res = await fetch(API_BASE + '/api/allerta', { cache: 'no-store' });
     if (!res.ok) return;
     const d = await res.json();
-    if (!d || !d.idr) return;
-
-    const signature = getAllertaSignature(d);
-    lastAllertaSignature = signature;
-
-    const bar = document.getElementById('allerta-bar');
-    bar.classList.add('visible');
-    bar.style.background = allertaBgColor(d.idr, d.idro, d.temp);
-    updatePanelTop();
-
-    ['idr','idro','temp'].forEach(k => {
-      const el = document.getElementById('bar-bollino-' + k);
-      const lbl = document.getElementById('bar-label-' + k);
-      if (el) el.style.background = ALLERTA_COLORS[d[k]] || '#64748b';
-      if (lbl) lbl.textContent = ({ idr: 'Idraulico', idro: 'Idrogeologico', temp: 'Temporali' })[k];
-    });
-
-    document.getElementById('allerta-periodo').textContent = d.periodo || '—';
-    document.getElementById('allerta-meteo').textContent   = d.meteo   || '—';
-    document.getElementById('allerta-suolo').textContent   = d.suolo   || '—';
-
-    const rowsEl = document.getElementById('allerta-rows');
-    rowsEl.innerHTML = [
-      { key: 'idr',  label: 'Rischio Idraulico' },
-      { key: 'idro', label: 'Rischio Idrogeologico' },
-      { key: 'temp', label: 'Rischio Idrogeologico per Temporali' }
-    ].map(r => `
-      <div class="allerta-row">
-        <div class="bollino-lg" style="background:${ALLERTA_COLORS[d[r.key]] || '#64748b'}"></div>
-        <span class="label">${r.label}</span>
-      </div>`).join('');
-
-    setTimeout(() => map.invalidateSize(), 300);
+    renderAllerta(d);
   } catch(e) { console.log('Allerta non disponibile:', e.message); }
 }
 
@@ -2088,7 +2117,7 @@ async function checkAllertaUpdates() {
 
     const signature = getAllertaSignature(d);
     if (lastAllertaSignature && signature === lastAllertaSignature) return;
-    await loadAllerta();
+    await loadAllerta(d);
   } catch (e) {
     console.log('Polling allerta non disponibile:', e.message);
   }
