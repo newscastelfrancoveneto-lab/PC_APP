@@ -842,11 +842,9 @@ const OVERPASS_ENDPOINTS = [
 ];
 
 async function overpassFetch(query) {
-    const attempts = OVERPASS_ENDPOINTS.map(endpoint =>
-        fetch(endpoint, { method: 'POST', body: query, signal: AbortSignal.timeout(25000) })
-            .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
-    );
-    return Promise.any(attempts);
+  const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(query);
+  return fetch(proxyUrl, {signal: AbortSignal.timeout(25000)})
+    .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)));
 }
 
 async function loadOSMData() {
