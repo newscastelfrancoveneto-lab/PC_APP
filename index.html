@@ -847,6 +847,9 @@ async function overpassFetch(query) {
     .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)));
 }
 
+
+	const CVBBOX = { s: 45.6230, w: 11.8730, n: 45.7020, e: 12.0020 };
+
 async function loadOSMData() {
     // Cache: se entrambi validi, renderizza e torna subito
     const cachedW = osmCacheGet('waterways');
@@ -855,7 +858,7 @@ async function loadOSMData() {
     if (cachedC) renderCPAGeoJSON(cachedC);
     if (cachedW && cachedC) return;
 
-    const CVBBOX = { s: 45.6230, w: 11.8730, n: 45.7020
+    
 
 
     // Query unificata: waterways + aree PC in un solo request
