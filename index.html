@@ -1248,7 +1248,9 @@ function scheduleStaleRetry(stn, sensors) {
 
 
 async function loadStation(stn, silent = false) {
-  currentId = stn.id; currentStnRef = stn;
+  currentId = stn.id;
+  currentStnRef = stn;
+  scheduleRefresh();
   setActiveMarker(stn.id);
   document.getElementById('panel-title').textContent = stn.name;
   document.getElementById('panel-subtitle').textContent = `${stn.subtitle} — Staz. ${stn.id}`;
@@ -1607,23 +1609,78 @@ function scheduleRefresh() {
   nextRefresh = next;
   tickCountdown();
 }
-function tickCountdown() {
-  const rem = nextRefresh - Date.now();
-  document.getElementById('countdown-label').textContent = formatCountdown(rem);
-	if (rem <= 0) {
-	  // Aggiorna tutte e 3 in background (fetch silenzioso)
-	  STATIONS.forEach(stn => {
-	    if (currentStnRef && stn.id === currentStnRef.id) {
-	      loadStation(stn, true); // aggiorna anche UI
-	    } else {
-	      // prefetch silenzioso (opzionale, serve struttura dati cache)
-	    }
-	  });
-	  scheduleRefresh();
-	}
+async function tickCountdown() {
+    if (!timerRunning || !currentStnRef) {
+        return;
+    }
 
-  else { setTimeout(tickCountdown, 1000); }
+    const badge = document.getElementById('refresh-badge');
+    const label = document.getElementById('countdown-label');
+
+    if (!badge || !label) {
+        return;
+    }
+
+    if (!nextRefresh) {
+        // fallback: se per qualche motivo non è impostato
+        const interval = currentStnRef?.refreshInterval ?? 30; // minuti
+        nextRefresh = getNextRefresh(interval);
+    }
+
+    const now = Date.now();
+    let rem = Math.max(0, Math.floor((nextRefresh - now) / 1000));
+
+    if (rem <= 0) {
+        // tempo scaduto -> tenta il refresh dei dati
+        label.textContent = 'Aggiornamento...';
+
+        try {
+            if (currentId && currentStnRef) {
+                // ricarica la stazione selezionata in modo silenzioso
+                await loadStation(currentStnRef, true);
+            }
+
+            // controlla se l’ultimo dato è troppo vecchio
+            let isStale = false;
+            const latestRow = document.querySelector('.data-table tr.latest td:nth-child(1)');
+            if (latestRow) {
+                const txt = latestRow.textContent?.trim();
+                if (txt) {
+                    const dt = new Date(txt.replace(' ', 'T') + ':00');
+                    if (!isNaN(dt.getTime())) {
+                        const ageMin = (now - dt.getTime()) / 60000;
+                        // se più vecchio di 2 intervalli, considera i dati “stale”
+                        const interval = currentStnRef?.refreshInterval ?? 30;
+                        if (ageMin > interval * 2) {
+                            isStale = true;
+                        }
+                    }
+                }
+            }
+
+            if (isStale) {
+                // se i dati sono vecchi, riprova tra 1 minuto
+                nextRefresh = Date.now() + 60 * 1000;
+            } else {
+                // altrimenti programma il prossimo slot basato sull'intervallo della stazione
+                const interval = currentStnRef?.refreshInterval ?? 30; // minuti
+                nextRefresh = getNextRefresh(interval);
+            }
+        } catch (e) {
+            console.error('Errore durante il refresh automatico:', e);
+            // in caso di errore, tenta di nuovo tra 1 minuto
+            nextRefresh = Date.now() + 60 * 1000;
+        }
+
+        // riparti sempre il countdown dopo il refresh
+        setTimeout(tickCountdown, 1000);
+    } else {
+        // countdown normale
+        label.textContent = formatCountdown(rem);
+        setTimeout(tickCountdown, 1000);
+    }
 }
+
 
 // ── NOTIFICHE PUSH ────────────────────────────────────────────────────────────
 function urlB64ToUint8Array(base64String) {
