@@ -855,7 +855,8 @@ async function loadOSMData() {
     if (cachedC) renderCPAGeoJSON(cachedC);
     if (cachedW && cachedC) return;
 
-    
+    const CVBBOX = { s: 45.6230, w: 11.8730, n: 45.7020
+
 
     // Query unificata: waterways + aree PC in un solo request
 const query = `[out:json][timeout:25];
