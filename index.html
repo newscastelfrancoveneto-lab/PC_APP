@@ -1339,6 +1339,23 @@ async function initMarkers() {
     m.on('click', () => { loadStation(stn); openPanel(); });
     markerRefs[stn.id] = m;
   });
+
+  scheduleArpavWarmup();
+}
+
+function scheduleArpavWarmup() {
+  // Precarica i feed in background per rendere l'apertura del pannello più rapida.
+  setTimeout(() => {
+    STATIONS.forEach((stn, idx) => {
+      setTimeout(() => {
+        const xmlUrl = stn.xmlUrl ?? XML_URL;
+        fetchText(xmlUrl, 2, 450, { bypassCache: false }).catch(() => {
+          const csvUrl = `${CSV_BASE}${String(stn.id).padStart(4, '0')}.csv`;
+          fetchText(csvUrl, 2, 450, { bypassCache: false }).catch(() => {});
+        });
+      }, idx * 350);
+    });
+  }, 800);
 }
 
 // ── ARPAV: FETCH & PARSING ────────────────────────────────────────────────────
@@ -1513,7 +1530,7 @@ async function loadStation(stn, options = false) {
   }
   try {
     const xmlUrl = stn.xmlUrl ?? XML_URL;
-    const xml = await fetchText(xmlUrl, 3, 2000, { bypassCache: opts.waitForNewData });
+    const xml = await fetchText(xmlUrl, opts.waitForNewData ? 3 : 2, opts.waitForNewData ? 1600 : 500, { bypassCache: opts.waitForNewData });
     const sensors = parseXML(xml, stn.id);
     if (sensors?.length > 0) {
       const latestTs = getLatestSensorTimestamp(sensors);
@@ -1540,7 +1557,7 @@ async function loadStation(stn, options = false) {
     }
   } catch (_) {}
   try {
-    const csv = await fetchText(`${CSV_BASE}${String(stn.id).padStart(4, '0')}.csv`, 3, 2000, { bypassCache: opts.waitForNewData });
+    const csv = await fetchText(`${CSV_BASE}${String(stn.id).padStart(4, '0')}.csv`, opts.waitForNewData ? 3 : 2, opts.waitForNewData ? 1600 : 500, { bypassCache: opts.waitForNewData });
     const rows = parseCSV(csv);
     if (rows?.length > 0) {
       const fallbackSensors = [{ type: 'LIVIDRO', paramnm: 'Livello idrometrico', unitnm: 'm', rows }];
