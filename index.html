@@ -639,7 +639,41 @@ const CSV_BASE = 'https://meteo.arpa.veneto.it/meteo/dati_meteo/xml/';
 const OSM_API  = 'https://api.openstreetmap.org/api/0.6/node/';
 
 const VAPID_PUBLIC = 'BHE0353MlqN8My2C-hhYQsC0XXD3QXAuIGnkf-BzCQaeV-I1sLVWlb_rT-C3Q9BJy6wVVSSWtQRsbO_iRRLEQsc';
-const API_BASE = 'https://francis-fantasy-bios-executed.trycloudflare.com';
+const API_BASE_DEFAULT = 'https://francis-fantasy-bios-executed.trycloudflare.com';
+const API_BASE_STORAGE_KEY = 'pc_api_base';
+const API_BASE_CANDIDATES = [
+  localStorage.getItem(API_BASE_STORAGE_KEY),
+  window.location.origin,
+  API_BASE_DEFAULT
+].filter((v, i, arr) => !!v && arr.indexOf(v) === i);
+let activeApiBase = API_BASE_CANDIDATES[0] || window.location.origin;
+
+function buildApiUrl(path, base = activeApiBase) {
+  if (!path.startsWith('/')) path = '/' + path;
+  return `${base}${path}`;
+}
+
+async function apiFetch(path, init = {}) {
+  if (!path.startsWith('/')) path = '/' + path;
+  let lastErr = null;
+
+  for (const base of API_BASE_CANDIDATES) {
+    try {
+      const res = await fetch(`${base}${path}`, init);
+      if (!res.ok && res.status >= 500) {
+        continue;
+      }
+      activeApiBase = base;
+      localStorage.setItem(API_BASE_STORAGE_KEY, base);
+      return res;
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+
+  if (lastErr) throw lastErr;
+  return fetch(buildApiUrl(path), init);
+}
 
 let activeChart = null, currentId = null, currentSensors = [];
 let currentStnRef = null, nextRefresh = null;
@@ -650,6 +684,9 @@ let lastHalfHourRefresh = null;
 let globalRefreshTimerId = null;
 const stationLastTimestamp = {};
 const stationLastSignature = {};
+const stationSensorsCache = {};
+const stationPrecipitationCache = {};
+const stationDerivedWarmupQueue = {};
 const stationRefreshState = {};
 const BACKGROUND_STATION_REFRESH_MS = 5 * 60 * 1000;
 const markerRefs = {};
@@ -1655,9 +1692,11 @@ async function loadStation(stn, options = false) {
         if (currentStnRef?.id === stn.id) refreshVisibleStationTimerState();
       }
       if (hasNewData) {
-        currentSensors = sensors;
+        stationSensorsCache[stn.id] = sensors;
+        if (!opts.background || currentStnRef?.id === stn.id) currentSensors = sensors;
         stationLastTimestamp[stn.id] = latestTs;
         stationLastSignature[stn.id] = latestSignature;
+        scheduleStationDerivedCacheWarmup(stn, sensors);
         if (!opts.background || currentStnRef?.id === stn.id) renderTabs(stn, sensors);
       } else if (!opts.waitForNewData && hasPayloadChanges) {
         stationLastSignature[stn.id] = latestSignature;
@@ -1683,10 +1722,12 @@ async function loadStation(stn, options = false) {
         if (currentStnRef?.id === stn.id) refreshVisibleStationTimerState();
       }
       if (hasNewData) {
-        currentSensors = fallbackSensors;
+        stationSensorsCache[stn.id] = fallbackSensors;
+        if (!opts.background || currentStnRef?.id === stn.id) currentSensors = fallbackSensors;
         stationLastTimestamp[stn.id] = latestTs;
         stationLastSignature[stn.id] = latestSignature;
-        if (!opts.background || currentStnRef?.id === stn.id) renderTabs(stn, currentSensors);
+        scheduleStationDerivedCacheWarmup(stn, fallbackSensors);
+        if (!opts.background || currentStnRef?.id === stn.id) renderTabs(stn, fallbackSensors);
       } else if (!opts.waitForNewData && hasPayloadChanges) {
         stationLastSignature[stn.id] = latestSignature;
       }
@@ -1694,6 +1735,16 @@ async function loadStation(stn, options = false) {
       return { ok: true, hasNewData, latestTs };
     }
   } catch (e) { if (!silent) showError(e.message); return { ok: false, hasNewData: false }; }
+
+  const cachedSensors = stationSensorsCache[stn.id];
+  if (cachedSensors?.length) {
+    if (!opts.background || currentStnRef?.id === stn.id) {
+      currentSensors = cachedSensors;
+      renderTabs(stn, cachedSensors);
+    }
+    return { ok: true, hasNewData: false, fromCache: true, latestTs: stationLastTimestamp[stn.id] || null };
+  }
+
   if (!silent) showError('Nessun dato disponibile per la stazione #' + stn.id);
   return { ok: false, hasNewData: false };
 }
@@ -1886,6 +1937,70 @@ function isSpecialPrecipitationChart(stn, sensor) {
   return normalized.includes('precip');
 }
 
+function buildPrecipitationCacheKey(sensor) {
+  const rows = sensor?.rows || [];
+  const first = rows[0]?.dt || '';
+  const last = rows.at(-1)?.dt || '';
+  return `${rows.length}:${first}:${last}`;
+}
+
+function getCachedPrecipitationData(stationId, sensor) {
+  if (!stationId || !sensor) return null;
+  const key = buildPrecipitationCacheKey(sensor);
+  const entry = stationPrecipitationCache[stationId]?.[key];
+  return entry || null;
+}
+
+function buildStationWarmupFingerprint(stn, sensors) {
+  return (sensors || [])
+    .filter(sensor => isSpecialPrecipitationChart(stn, sensor))
+    .map(sensor => `${sensor.type}:${sensor.paramnm}:${buildPrecipitationCacheKey(sensor)}`)
+    .join('|');
+}
+
+function scheduleStationDerivedCacheWarmup(stn, sensors) {
+  if (!stn?.id || !Array.isArray(sensors)) return;
+  const fingerprint = buildStationWarmupFingerprint(stn, sensors);
+  if (!fingerprint || stationDerivedWarmupQueue[stn.id] === fingerprint) return;
+
+  stationDerivedWarmupQueue[stn.id] = fingerprint;
+  const runWarmup = () => {
+    warmupStationDerivedCaches(stn, sensors)
+      .catch(() => {})
+      .finally(() => {
+        if (stationDerivedWarmupQueue[stn.id] === fingerprint) delete stationDerivedWarmupQueue[stn.id];
+      });
+  };
+
+  if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(runWarmup, { timeout: 1500 });
+  } else {
+    setTimeout(runWarmup, 0);
+  }
+}
+
+async function warmupStationDerivedCaches(stn, sensors) {
+  if (!stn?.id || !Array.isArray(sensors)) return;
+  await yieldToMainThread();
+  stationSensorsCache[stn.id] = sensors;
+  const precipCache = stationPrecipitationCache[stn.id] || {};
+
+  for (const sensor of sensors) {
+    if (!isSpecialPrecipitationChart(stn, sensor)) continue;
+    const key = buildPrecipitationCacheKey(sensor);
+    if (precipCache[key]) continue;
+
+    const rows = [...sensor.rows].reverse();
+    const bars = buildPrecipitationBars(rows);
+    const accumulation = await buildRolling24hAccumulation(rows, bars, null, { ignoreRenderToken: true });
+    if (!accumulation) continue;
+
+    precipCache[key] = { bars, accumulation };
+  }
+
+  stationPrecipitationCache[stn.id] = precipCache;
+}
+
 function parseArpavDate(ts) {
   if (!ts || ts.length < 12) return null;
   const yyyy = Number(ts.slice(0, 4));
@@ -1909,7 +2024,8 @@ function buildPrecipitationBars(rows) {
   }).map(v => Math.max(0, Number(v.toFixed(3))));
 }
 
-async function buildRolling24hAccumulation(rows, bars, renderToken) {
+async function buildRolling24hAccumulation(rows, bars, renderToken, options = {}) {
+  const { ignoreRenderToken = false } = options;
   const windowMs = 24 * 60 * 60 * 1000;
   const parsedDates = rows.map(r => parseArpavDate(r.dt));
 
@@ -1929,7 +2045,7 @@ async function buildRolling24hAccumulation(rows, bars, renderToken) {
   let rollingStart = 0;
   let rollingSum = 0;
   for (let i = 0; i < bars.length; i++) {
-    if (renderToken !== activePrecipitationRenderToken) return null;
+    if (!ignoreRenderToken && renderToken !== activePrecipitationRenderToken) return null;
     rollingSum += bars[i];
     const currentDate = parsedDates[i];
     while (rollingStart <= i) {
@@ -1966,7 +2082,8 @@ async function renderSpecialPrecipitation(stn, sensor) {
   if (renderToken !== activePrecipitationRenderToken) return;
 
   const labels = rows.map(r => r.label);
-  const bars = buildPrecipitationBars(rows);
+  const cachedPrecipitation = getCachedPrecipitationData(stn?.id, sensor);
+  const bars = cachedPrecipitation?.bars || buildPrecipitationBars(rows);
   if (renderToken !== activePrecipitationRenderToken) return;
 
   const lastStep = bars.at(-1) ?? 0;
@@ -2051,7 +2168,8 @@ async function renderSpecialPrecipitation(stn, sensor) {
   });
 
   setTimeout(async () => {
-    const accumulation = await buildRolling24hAccumulation(rows, bars, renderToken);
+    const accumulation = cachedPrecipitation?.accumulation
+      || await buildRolling24hAccumulation(rows, bars, renderToken);
     if (!accumulation || renderToken !== activePrecipitationRenderToken) return;
 
     const last24h = accumulation.at(-1) ?? 0;
@@ -2449,7 +2567,7 @@ async function subscribeUser() {
     });
 
     // Invia la sottoscrizione al tuo server usando la costante API_BASE
-    const response = await fetch(API_BASE + '/api/subscribe', {
+    const response = await apiFetch('/api/subscribe', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -2479,7 +2597,7 @@ initGlobalRefreshScheduler();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/PC_APP/sw.js')
+    navigator.serviceWorker.register('sw.js')
       .then(reg => console.log('Service Worker registrato!'))
       .catch(err => console.error('Errore registrazione SW:', err));
   });
@@ -2550,7 +2668,7 @@ async function loadAllerta(data = null) {
       return;
     }
 
-    const res = await fetch(API_BASE + '/api/allerta', { cache: 'no-store' });
+    const res = await apiFetch('/api/allerta', { cache: 'no-store' });
     if (!res.ok) return;
     const d = await res.json();
     renderAllerta(d);
@@ -2559,7 +2677,7 @@ async function loadAllerta(data = null) {
 
 async function checkAllertaUpdates() {
   try {
-    const res = await fetch(API_BASE + '/api/allerta', { cache: 'no-store' });
+    const res = await apiFetch('/api/allerta', { cache: 'no-store' });
     if (!res.ok) return;
     const d = await res.json();
     if (!d || !d.idr) return;
