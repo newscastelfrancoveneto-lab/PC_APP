@@ -593,8 +593,16 @@
 
 
 <script>
+
 // ── COSTANTI ──────────────────────────────────────────────────────────────────
 const ARPA_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="13" height="13"><rect x="3" y="3" width="1.8" height="12.4" rx=".9" fill="white"/><rect x="3" y="14.2" width="10.5" height="1.8" rx=".9" fill="white"/><path d="M4 3.5 Q9.5 0.5 14 5.5" stroke="white" stroke-width="1.8" fill="none" stroke-linecap="round"/><line x1="6.5" y1="4.6" x2="6.5" y2="14.2" stroke="white" stroke-width="1.1" stroke-linecap="round"/><line x1="9.2" y1="3.4" x2="9.2" y2="14.2" stroke="white" stroke-width="1.1" stroke-linecap="round"/><line x1="12" y1="5" x2="12" y2="14.2" stroke="white" stroke-width="1.1" stroke-linecap="round"/></svg>';
+
+const API_BASE = 'https://pensions-marketing-reload-flyer.trycloudflare.com';
+const PROXY = 'https://api.allorigins.win/raw?url=';
+const XML_URL = 'https://www.arpa.veneto.it/api/risorse/data-meteo/xml/Ultime48ore.xml';
+const CSV_BASE = `${API_BASE}/api/arpav/csv/`;
+const OSM_API = 'https://api.openstreetmap.org/api/0.6/node/';
+const VAPID_PUBLIC = 'BHE0353MlqN8My2C-hhYQsC0XXD3QXAuIGnkf-BzCQaeV-I1sLVWlb_rT-C3Q9BJy6wVVSSWtQRsbO_iRRLEQsc';
 
 const STATIONS = [
   {
@@ -608,7 +616,6 @@ const STATIONS = [
     refreshInterval: 30,
     soglie: { s1: 1.8, s2: 2.5, s3: 2.9 }
   },
-
   {
     id: 653,
     osmNodeId: '1.2984421539e+10',
@@ -620,7 +627,6 @@ const STATIONS = [
     refreshInterval: 30,
     soglie: { s1: 1.5, s2: 1.8, s3: 2.1 }
   },
-
   {
     id: 102,
     osmNodeId: 1.2984403717e+10,
@@ -634,12 +640,12 @@ const STATIONS = [
   }
 ];
 
-
 const SOGLIA_CFG = [
   { key: 's1', label: 'Guardia 1', color: '#eab308' },
   { key: 's2', label: 'Guardia 2', color: '#f97316' },
   { key: 's3', label: 'Guardia 3', color: '#ef4444' }
 ];
+
 const TYPE_COLOR = {
   VENTO:   { border: '#0ea5e9', fill: 'rgba(14,165,233,.15)' },
   LIVIDRO: { border: '#0e8a8a', fill: 'rgba(14,138,138,.15)' },
@@ -647,18 +653,14 @@ const TYPE_COLOR = {
   PORTATA: { border: '#7c3aed', fill: 'rgba(124,58,237,.15)' },
   DEFAULT: { border: '#0e8a8a', fill: 'rgba(14,138,138,.15)' }
 };
-const TAB_LABELS = { LIVIDRO: 'Livello idro.', PRECCUM: 'Precipitazioni', PORTATA: 'Portata' };
+
+const TAB_LABELS = {
+  LIVIDRO: 'Livello idro.',
+  PRECCUM: 'Precipitazioni',
+  PORTATA: 'Portata'
+};
 
 const CV_BBOX = { s: 45.6230, w: 11.8730, n: 45.7020, e: 12.0020 };
-
-
-const PROXY = 'https://api.allorigins.win/raw?url=';
-const XML_URL  = 'https://www.arpa.veneto.it/api/risorse/data-meteo/xml/Ultime48ore.xml';
-const CSV_BASE = 'https://meteo.arpa.veneto.it/meteo/dati_meteo/xml/';
-const OSM_API  = 'https://api.openstreetmap.org/api/0.6/node/';
-
-const VAPID_PUBLIC = 'BHE0353MlqN8My2C-hhYQsC0XXD3QXAuIGnkf-BzCQaeV-I1sLVWlb_rT-C3Q9BJy6wVVSSWtQRsbO_iRRLEQsc';
-const API_BASE = 'https://pensions-marketing-reload-flyer.trycloudflare.com';
 
 let activeChart = null, currentId = null, currentSensors = [];
 let currentStnRef = null, nextRefresh = null;
@@ -672,6 +674,8 @@ const stationLastSignature = {};
 const stationRefreshState = {};
 const BACKGROUND_STATION_REFRESH_MS = 5 * 60 * 1000;
 const markerRefs = {};
+
+
 
 // ── PANNELLO UI ───────────────────────────────────────────────────────────────
 function showBadge(show) { document.getElementById('refresh-badge').classList.toggle('visible', show); }
@@ -1365,19 +1369,19 @@ async function initMarkers() {
 }
 
 function scheduleArpavWarmup() {
-  // Precarica i feed in background per rendere l'apertura del pannello più rapida.
   setTimeout(() => {
     STATIONS.forEach((stn, idx) => {
       setTimeout(() => {
         const xmlUrl = stn.xmlUrl ?? XML_URL;
         fetchText(xmlUrl, 2, 450, { bypassCache: false }).catch(() => {
-          const csvUrl = `${CSV_BASE}${String(stn.id).padStart(4, '0')}.csv`;
+          const csvUrl = `${CSV_BASE}${String(stn.id).padStart(4, '0')}`;
           fetchText(csvUrl, 2, 450, { bypassCache: false }).catch(() => {});
         });
       }, idx * 350);
     });
   }, 800);
 }
+
 
 function scheduleBackgroundStationRefresh() {
   const runRefreshSweep = () => {
@@ -1528,11 +1532,14 @@ function firstFulfilled(promises) {
   });
 }
 
-async function fetchText(url, maxRetries = 3, delayMs = 2000, options = {}) {
+async function fetchText(url, maxRetries = 2, delayMs = 800, options = {}) {
   const { bypassCache = false } = options;
   const cacheKey = url.split('?')[0];
   const cached = xmlCache[cacheKey];
-  if (!bypassCache && cached && (Date.now() - cached.ts) < ARPAV_CACHE_MAX_AGE_MS) return cached.data;
+
+  if (!bypassCache && cached && (Date.now() - cached.ts) < ARPAV_CACHE_MAX_AGE_MS) {
+    return cached.data;
+  }
 
   if (!bypassCache && !cached) {
     const persisted = getPersistentArpavCacheEntry(cacheKey, ARPAV_CACHE_MAX_AGE_MS);
@@ -1547,26 +1554,13 @@ async function fetchText(url, maxRetries = 3, delayMs = 2000, options = {}) {
   const requestPromise = (async () => {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       const urlCacheBust = `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}-${attempt}`;
-      const proxyWaves = [
-        [{ proxy: PROXIES[0], timeout: 5000 }],
-        [{ proxy: PROXIES[1], timeout: 7000 }],
-        [{ proxy: PROXIES[2], timeout: 9000 }]
-      ];
-
-      const waveSources = [
-        { url, timeout: 1200 },
-        ...proxyWaves.slice(0, attempt).flat().map(({ proxy, timeout }) => ({
-          url: proxy + encodeURIComponent(urlCacheBust), timeout
-        }))
-      ];
 
       try {
-        const result = await firstFulfilled(waveSources.map(s => fetchXmlSource(s.url, s.timeout)));
+        const result = await fetchXmlSource(urlCacheBust, 8000 + attempt * 2000);
         setArpavCache(cacheKey, result);
         return result;
-      } catch {
+      } catch (err) {
         if (attempt < maxRetries) {
-          console.warn(`[fetchText] Tentativo ${attempt}/${maxRetries} fallito, riprovo tra ${delayMs * attempt}ms...`);
           await new Promise(res => setTimeout(res, delayMs * attempt));
         }
       }
@@ -1575,7 +1569,6 @@ async function fetchText(url, maxRetries = 3, delayMs = 2000, options = {}) {
     const stalePersisted = getPersistentArpavCacheEntry(cacheKey, ARPAV_CACHE_FALLBACK_MAX_AGE_MS);
     if (stalePersisted?.data) {
       xmlCache[cacheKey] = stalePersisted;
-      console.warn('[fetchText] Uso cache persistente ARPAV per fallback offline:', cacheKey);
       return stalePersisted.data;
     }
 
@@ -1589,7 +1582,6 @@ async function fetchText(url, maxRetries = 3, delayMs = 2000, options = {}) {
     if (!bypassCache) delete xmlInFlight[cacheKey];
   }
 }
-
 
 
 function scheduleStaleRetry(stn, sensors) {
@@ -1641,10 +1633,10 @@ var ensureStationBoundaryWaiting = function(stationId, latestTs) {
   }
 };
 
-
 async function loadStation(stn, options = false) {
   const opts = typeof options === 'boolean' ? { silent: options } : (options || {});
   const silent = !!opts.silent;
+
   if (!opts.background) {
     currentId = stn.id;
     currentStnRef = stn;
@@ -1653,15 +1645,25 @@ async function loadStation(stn, options = false) {
     document.getElementById('panel-subtitle').textContent = `${stn.subtitle} — Staz. ${stn.id}`;
     showBadge(true);
   }
+
   if (!silent) {
     document.getElementById('sensor-tabs').style.display = 'none';
-    document.getElementById('panel-body').innerHTML = '<div class="loading"><div class="spinner"></div>Recupero dati ARPAV...</div>';
+    document.getElementById('panel-body').innerHTML =
+      '<div class="loading"><div class="spinner"></div>Recupero dati ARPAV...</div>';
     if (activeChart) { activeChart.destroy(); activeChart = null; }
   }
+
   try {
     const xmlUrl = stn.xmlUrl ?? XML_URL;
-    const xml = await fetchText(xmlUrl, opts.waitForNewData ? 3 : 2, opts.waitForNewData ? 1600 : 500, { bypassCache: opts.waitForNewData });
+    const xml = await fetchText(
+      xmlUrl,
+      opts.waitForNewData ? 3 : 2,
+      opts.waitForNewData ? 1600 : 500,
+      { bypassCache: opts.waitForNewData }
+    );
+
     const sensors = parseXML(xml, stn.id);
+
     if (sensors?.length > 0) {
       const latestTs = getLatestSensorTimestamp(sensors);
       const latestSignature = getLatestSensorSignature(sensors);
@@ -1669,10 +1671,12 @@ async function loadStation(stn, options = false) {
       const hasPayloadChanges = latestSignature !== stationLastSignature[stn.id];
       const hasReachedTargetTimestamp = !opts.minTimestamp || isTimestampAtLeast(latestTs, opts.minTimestamp);
       const hasNewData = opts.waitForNewData ? hasReachedTargetTimestamp : true;
+
       if (refreshState?.waiting && isTimestampAtLeast(latestTs, refreshState.baselineTimestamp)) {
         setStationRefreshState(stn.id, { waiting: false, baselineTimestamp: null });
         if (currentStnRef?.id === stn.id) refreshVisibleStationTimerState();
       }
+
       if (hasNewData) {
         currentSensors = sensors;
         stationLastTimestamp[stn.id] = latestTs;
@@ -1681,26 +1685,44 @@ async function loadStation(stn, options = false) {
       } else if (!opts.waitForNewData && hasPayloadChanges) {
         stationLastSignature[stn.id] = latestSignature;
       }
+
       ensureStationBoundaryWaiting(stn.id, latestTs);
       if (silent && !opts.waitForNewData) scheduleStaleRetry(stn, sensors);
       return { ok: true, hasNewData, latestTs };
     }
   } catch (_) {}
+
   try {
-    const csv = await fetchText(`${CSV_BASE}${String(stn.id).padStart(4, '0')}.csv`, opts.waitForNewData ? 3 : 2, opts.waitForNewData ? 1600 : 500, { bypassCache: opts.waitForNewData });
+    const csvUrl = `${CSV_BASE}${String(stn.id).padStart(4, '0')}`;
+    const csv = await fetchText(
+      csvUrl,
+      opts.waitForNewData ? 3 : 2,
+      opts.waitForNewData ? 1600 : 500,
+      { bypassCache: opts.waitForNewData }
+    );
+
     const rows = parseCSV(csv);
+
     if (rows?.length > 0) {
-      const fallbackSensors = [{ type: 'LIVIDRO', paramnm: 'Livello idrometrico', unitnm: 'm', rows }];
+      const fallbackSensors = [{
+        type: 'LIVIDRO',
+        paramnm: 'Livello idrometrico',
+        unitnm: 'm',
+        rows
+      }];
+
       const latestTs = getLatestSensorTimestamp(fallbackSensors);
       const latestSignature = getLatestSensorSignature(fallbackSensors);
       const refreshState = getStationRefreshState(stn.id);
       const hasPayloadChanges = latestSignature !== stationLastSignature[stn.id];
       const hasReachedTargetTimestamp = !opts.minTimestamp || isTimestampAtLeast(latestTs, opts.minTimestamp);
       const hasNewData = opts.waitForNewData ? hasReachedTargetTimestamp : true;
+
       if (refreshState?.waiting && isTimestampAtLeast(latestTs, refreshState.baselineTimestamp)) {
         setStationRefreshState(stn.id, { waiting: false, baselineTimestamp: null });
         if (currentStnRef?.id === stn.id) refreshVisibleStationTimerState();
       }
+
       if (hasNewData) {
         currentSensors = fallbackSensors;
         stationLastTimestamp[stn.id] = latestTs;
@@ -1709,13 +1731,19 @@ async function loadStation(stn, options = false) {
       } else if (!opts.waitForNewData && hasPayloadChanges) {
         stationLastSignature[stn.id] = latestSignature;
       }
+
       ensureStationBoundaryWaiting(stn.id, latestTs);
       return { ok: true, hasNewData, latestTs };
     }
-  } catch (e) { if (!silent) showError(e.message); return { ok: false, hasNewData: false }; }
+  } catch (e) {
+    if (!silent) showError(e.message);
+    return { ok: false, hasNewData: false };
+  }
+
   if (!silent) showError('Nessun dato disponibile per la stazione #' + stn.id);
   return { ok: false, hasNewData: false };
 }
+
 
 function parseXML(xmlText, stationId) {
   const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
