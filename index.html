@@ -728,85 +728,145 @@ function closePanel() {
 }
 
 // --- GESTIONE NOTIFICHE ---
-
-// Salva una notifica in localStorage (max 20)
-function _notifSave(notif) {
+// Salva una notifica in localStorage (max 20) + IndexedDB (principale)
+async function notifSave(notif) {
+  // 1. LocalStorage (per compatibilità)
   let list = [];
-  try { list = JSON.parse(localStorage.getItem('notifList') || '[]'); } catch(e) {}
-  // Evita duplicati (stesso timestamp+title)
-  const key = (notif.title || '') + (notif.timestamp || '');
-  if (list.some(n => (n.title||'')+(n.timestamp||'') === key)) return;
-  list.unshift(notif);
-  if (list.length > 20) list.pop();
-  localStorage.setItem('notifList', JSON.stringify(list));
+  try { list = JSON.parse(localStorage.getItem('notifList') || '[]'); } catch {}
+  const key = `${notif.title}-${notif.timestamp}`;
+  if (!list.some(n => `${n.title}-${n.timestamp}` === key)) {
+    list.unshift(notif);
+    if (list.length > 20) list.pop();
+    localStorage.setItem('notifList', JSON.stringify(list));
+  }
+  
+  // 2. IndexedDB (principale, persiste anche senza pagina aperta)
+  try {
+    const db = await openDB();
+    await db.transaction('notifications', 'readwrite').objectStore('notifications').add(notif);
+  } catch (e) { console.warn('IndexedDB save failed', e); }
 }
 
-// Aggiunge una notifica alla UI (e la persiste in localStorage)
+// Aggiunge una notifica alla UI (non salva)
 function addNotificationToUI(notif, persist = true) {
-  if (persist) _notifSave(notif);
+  if (persist) notifSave(notif);
   const listEl = document.querySelector('.notifications-list');
   if (!listEl) return;
   const placeholder = listEl.querySelector('.notification-placeholder');
   if (placeholder) placeholder.remove();
+  
   const item = document.createElement('div');
   item.className = 'notification-item';
   item.innerHTML = `
-    <div class="notif-title">${notif.title || ''}</div>
-    <div class="notif-body">${notif.body || ''}</div>
-    <div class="notif-time">${notif.timestamp || ''}</div>
+    <div class="notif-title">${notif.title}</div>
+    <div class="notif-body">${notif.body}</div>
+    <div class="notif-time">${notif.timestamp}</div>
   `;
   listEl.prepend(item);
 }
 
-// Carica le notifiche salvate all'avvio
-function loadSavedNotifications() {
-  // 1. Prova localStorage (fonte primaria per le notifiche ricevute mentre l'app era aperta)
-  let saved = [];
-  try { saved = JSON.parse(localStorage.getItem('notifList') || '[]'); } catch(e) {}
-
-  if (saved.length > 0) {
-    saved.forEach(n => addNotificationToUI(n, false)); // false = non ri-salvare
-    return;
-  }
-
-  // 2. Fallback: IndexedDB (notifiche salvate dal Service Worker quando l'app era chiusa)
-  try {
-    const req = indexedDB.open('NotificheDB', 1);
-    req.onsuccess = (event) => {
+// Open IndexedDB (stesso nome/versione del SW)
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('NotificheDB', 1);
+    request.onupgradeneeded = (event) => {
       const db = event.target.result;
-      if (!db.objectStoreNames.contains('notifications')) return;
-      const getAllReq = db.transaction('notifications', 'readonly').objectStore('notifications').getAll();
-      getAllReq.onsuccess = () => {
-        const notifications = getAllReq.result || [];
-        [...notifications].reverse().forEach(n => addNotificationToUI(n, true)); // salva in localStorage
-      };
+      if (!db.objectStoreNames.contains('notifications')) {
+        db.createObjectStore('notifications', { autoIncrement: true });
+      }
     };
-  } catch(e) { console.warn('IndexedDB non disponibile:', e); }
+    request.onsuccess = (event) => {
+      const db = event.target.result;
+      resolve({
+        transaction(storeName, mode) {
+          const tx = db.transaction(storeName, mode);
+          return {
+            objectStore(name) {
+              const store = tx.objectStore(name);
+              return {
+                getAll() {
+                  return new Promise((res, rej) => {
+                    const req = store.getAll();
+                    req.onsuccess = () => res(req.result);
+                    req.onerror = () => rej(req.error);
+                  });
+                },
+                clear() {
+                  return new Promise((res, rej) => {
+                    const req = store.clear();
+                    req.onsuccess = () => res(req.result);
+                    req.onerror = () => rej(req.error);
+                  });
+                },
+                add(item) {
+                  return new Promise((res, rej) => {
+                    const req = store.add(item);
+                    req.onsuccess = () => res(req.result);
+                    req.onerror = () => rej(req.error);
+                  });
+                }
+              };
+            }
+          };
+        }
+      });
+    };
+    request.onerror = (event) => reject(event.target.error);
+  });
 }
 
-// Svuota tutte le notifiche
-function clearNotifications() {
-  // 1. Pulisci localStorage SUBITO
+// Carica tutte le notifiche all'avvio (IndexedDB prima, poi localStorage)
+async function loadSavedNotifications() {
+  const listEl = document.querySelector('.notifications-list');
+  if (!listEl) return;
+  
+  // 1. IndexedDB (principale: notifiche dal SW quando app chiusa)
+  let notifications = [];
+  try {
+    const db = await openDB();
+    notifications = await db.transaction('notifications', 'readonly').objectStore('notifications').getAll();
+    notifications.reverse(); // più recenti prima
+  } catch (e) { console.warn('IndexedDB load failed', e); }
+  
+  // 2. LocalStorage fallback (vecchie notifiche)
+  let saved = [];
+  try {
+    saved = JSON.parse(localStorage.getItem('notifList') || '[]');
+  } catch {}
+  
+  // Merge + deduplica (timestamp + title)
+  const all = [...notifications, ...saved].filter((n, i, arr) => 
+    arr.findIndex(m => m.timestamp === n.timestamp && m.title === n.title) === i
+  );
+  
+  if (all.length === 0) {
+    listEl.innerHTML = '<p class="notification-placeholder">Nessuna notifica recente</p>';
+    return;
+  }
+  
+  listEl.innerHTML = '';
+  all.slice(0, 20).forEach(n => addNotificationToUI(n, false)); // false: non ri-salvare
+}
+
+// Svuota tutto
+async function clearNotifications() {
+  // 1. LocalStorage
   localStorage.removeItem('notifList');
-  // 2. Pulisci DOM SUBITO
+  // 2. DOM
   const listEl = document.querySelector('.notifications-list');
   if (listEl) listEl.innerHTML = '<p class="notification-placeholder">Nessuna notifica recente</p>';
-  // 3. Pulisci IndexedDB (best effort, non blocca nulla)
+  // 3. IndexedDB
   try {
-    const req = indexedDB.open('NotificheDB', 1);
-    req.onsuccess = (event) => {
-      const db = event.target.result;
-      if (db.objectStoreNames.contains('notifications'))
-        db.transaction('notifications', 'readwrite').objectStore('notifications').clear();
-    };
-  } catch(e) {}
+    const db = await openDB();
+    await db.transaction('notifications', 'readwrite').objectStore('notifications').clear();
+  } catch (e) { console.warn('IndexedDB clear failed', e); }
 }
 
 // Ascolta notifiche in arrivo dal Service Worker in tempo reale
 const bc = new BroadcastChannel('notifications-channel');
 bc.onmessage = (event) => {
   console.log("Notifica ricevuta in tempo reale:", event.data);
-  addNotificationToUI(event.data); // aggiunge UI + salva in localStorage
+  addNotificationToUI(event.data, true) // aggiunge UI + salva in localStorage
   setTimeout(() => { if (typeof loadAllerta === 'function') loadAllerta(); }, 1000);
 };
 
@@ -1166,6 +1226,7 @@ function toggleWaterways(visible) {
 function toggleNotificationsMenu() {
   const menu = document.getElementById('notifications-menu');
   menu.classList.toggle('open');
+  loadSavedNotifications()
   
   // Opzionale: cambia il testo del pulsante se l'utente è già iscritto
   updateSubscribeButton();
