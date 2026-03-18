@@ -2583,6 +2583,12 @@ async function subscribeUser() {
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 initMarkers();
+// CARICA ALLERTA SUBITO, indipendentemente da notifiche/push
+loadAllerta();
+setInterval(loadAllerta, 10 * 60 * 1000);  // Ogni 10min
+setInterval(checkAllertaUpdates, 60 * 1000); // Polling 1min
+updatePanelTop()
+
 initGlobalRefreshScheduler();
 
 if ('serviceWorker' in navigator) {
@@ -2660,17 +2666,21 @@ async function loadAllerta(data = null) {
 }
 
 
+let lastAllertaSignature = null;
 async function checkAllertaUpdates() {
   try {
-    const res = await fetch(API_BASE + '/api/allerta', { cache: 'no-store' });
+    const res = await fetch(`${APIBASE}/apiallerta`, { cache: 'no-store' });
     if (!res.ok) return;
     const d = await res.json();
     if (!d || !d.idr) return;
     const signature = getAllertaSignature(d);
-    if (lastAllertaSignature === signature) return;
+    if (signature === lastAllertaSignature) return;  // Nessun cambio
     await loadAllerta(d);
-  } catch(e) { console.log('Polling allerta non disponibile', e.message); }
+  } catch (e) {
+    console.log('Polling allerta non disponibile', e.message);
+  }
 }
+
 
 
 loadAllerta();
