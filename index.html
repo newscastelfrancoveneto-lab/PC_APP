@@ -2275,11 +2275,8 @@ async function renderSpecialPrecipitation(stn, sensor) {
           border: { display: false }
         },
         yAccum: {
-          beginAtZero: true,
-          position: 'right',
-          title: { display: true, text: `Accumulo (${unit})`, font: { size: 10 } },
-          grid: { drawOnChartArea: false },
-          border: { display: false }
+          display: false,
+          beginAtZero: true
         }
       }
     }
@@ -2319,7 +2316,7 @@ async function renderSpecialPrecipitation(stn, sensor) {
     activeChart.data.datasets.push({
       label: `Precipitazione cumulata 24h (${unit})`,
       data: accumulation,
-      yAxisID: 'yAccum',
+      yAxisID: 'y',
       type: 'line',
       borderColor: '#3b82f6',
       backgroundColor: 'rgba(59,130,246,.12)',
@@ -2334,7 +2331,7 @@ async function renderSpecialPrecipitation(stn, sensor) {
       activeChart.data.datasets.push({
         label: `Accumulo 24h corretto (${unit})`,
         data: dryingAdjustedAccumulation,
-        yAxisID: 'yAccum',
+        yAxisID: 'y',
         type: 'line',
         borderColor: '#ef4444',
         backgroundColor: 'rgba(239,68,68,.12)',
