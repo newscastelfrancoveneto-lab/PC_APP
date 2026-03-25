@@ -2275,13 +2275,10 @@ async function renderSpecialPrecipitation(stn, sensor) {
         x: { ticks: { maxTicksLimit: 6, maxRotation: 0, font: { size: 10 } }, grid: { color: '#f1f5f9' }, border: { display: false } },
         y: {
           beginAtZero: true,
+          position: 'left',
           title: { display: true, text: `Precipitazione / Accumulo (${unit})`, font: { size: 10 } },
           grid: { color: '#f1f5f9' },
           border: { display: false }
-        },
-        yAccum: {
-          display: false,
-          beginAtZero: true
         }
       }
     }
