@@ -2331,7 +2331,7 @@ async function renderSpecialPrecipitation(stn, sensor) {
     activeChart.data.datasets.push({
       label: `Precipitazione cumulata 24h (${unit})`,
       data: accumulation,
-      yAxisID: 'yAcc',
+      yAxisID: 'y',
       type: 'line',
       borderColor: '#3b82f6',
       backgroundColor: 'rgba(59,130,246,.12)',
@@ -2346,7 +2346,7 @@ async function renderSpecialPrecipitation(stn, sensor) {
       activeChart.data.datasets.push({
         label: `Accumulo 24h corretto (${unit})`,
         data: dryingAdjustedAccumulation,
-        yAxisID: 'yAcc',
+        yAxisID: 'y',
         type: 'line',
         borderColor: '#ef4444',
         backgroundColor: 'rgba(239,68,68,.12)',
