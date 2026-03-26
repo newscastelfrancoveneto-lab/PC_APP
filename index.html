@@ -647,11 +647,14 @@ const SOGLIA_CFG = [
 ];
 
 const TYPE_COLOR = {
-  VENTO:   { border: '#0ea5e9', fill: 'rgba(14,165,233,.15)' },
-  LIVIDRO: { border: '#0e8a8a', fill: 'rgba(14,138,138,.15)' },
-  PRECCUM: { border: '#0284c7', fill: 'rgba(2,132,199,.15)' },
-  PORTATA: { border: '#7c3aed', fill: 'rgba(124,58,237,.15)' },
-  DEFAULT: { border: '#0e8a8a', fill: 'rgba(14,138,138,.15)' }
+  VENTO:   { border: '#38bdf8', fill: 'rgba(56,189,248,.15)'  },  // azzurro cielo
+  LIVIDRO: { border: '#1d4ed8', fill: 'rgba(29,78,216,.15)'   },  // blu profondo
+  PRECCUM: { border: '#2563eb', fill: 'rgba(37,99,235,.15)'   },  // blu medio
+  PORTATA: { border: '#075985', fill: 'rgba(7,89,133,.15)'    },  // blu scuro
+  TARIA:   { border: '#16a34a', fill: 'rgba(22,163,74,.15)'   },  // verde
+  UREL:    { border: '#1e3a8a', fill: 'rgba(30,58,138,.15)'   },  // blu notte umidità
+  RADGLOB: { border: '#eab308', fill: 'rgba(234,179,8,.15)'   },  // giallo sole
+  DEFAULT: { border: '#1d4ed8', fill: 'rgba(29,78,216,.12)'   }   // fallback blu
 };
 
 const TAB_LABELS = {
@@ -1903,7 +1906,7 @@ function renderWindCombined(stn, sensor) {
 
   const statHtml = `<div class="stat-row">
     <div class="stat-card"><div class="val">${last ? last.val.toFixed(1) + ' ' + sensor.unitnm : '—'}</div><div class="lbl">Vel. attuale</div></div>
-    <div class="stat-card"><div class="val">${windDir(lastDir)}</div><div class="lbl">Dir. attuale</div></div>
+    <div class="stat-card"><div class="val">${windDir(lastDir)}</div><div class="lbl">Prov. attuale</div></div>
     <div class="stat-card"><div class="val">${maxVel !== '—' ? maxVel + ' ' + sensor.unitnm : '—'}</div><div class="lbl">Max 48h</div></div>
     <div class="stat-card"><div class="val">${avgVel !== '—' ? avgVel + ' ' + sensor.unitnm : '—'}</div><div class="lbl">Media 48h</div></div>
   </div>`;
@@ -1921,16 +1924,52 @@ function renderWindCombined(stn, sensor) {
     ${statHtml}
     <div class="chart-wrap"><canvas id="sensorChart"></canvas></div>
     <table class="data-table">
-      <thead><tr><th>Ora</th><th>Velocità (${sensor.unitnm})</th><th>Direzione</th></tr></thead>
+      <thead><tr><th>Ora</th><th>Velocità (${sensor.unitnm})</th><th>Provenienza</th></tr></thead>
       <tbody>${tableRows}</tbody>
     </table>`;
 
-  if (activeChart) activeChart.destroy() { activeChart.destroy(); activeChart = null; }
+  if (activeChart) { activeChart.destroy(); activeChart = null; }
   const ctx = document.getElementById('sensorChart').getContext('2d');
   Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
   Chart.defaults.color = '#64748b';
   const clr = TYPE_COLOR['VENTO'];
   const chartRows = [...velRows].reverse();
+
+  // Frecce direzione vento — nord = cima pagina = su
+  const directions = chartRows.map(r => {
+    const v = dirMap[r.dt];
+    return (v != null && !isNaN(Number(v))) ? Number(v) : null;
+  });
+  const windArrowPlugin = {
+    id: 'windArrows',
+    afterDatasetsDraw(chart) {
+      const c = chart.ctx;
+      const meta = chart.getDatasetMeta(0);
+      const sz = 11; // +50% rispetto a 7
+      meta.data.forEach((pt, i) => {
+        const deg = directions[i];
+        if (deg == null) return;
+        // 0°=N=su, 90°=E=destra, 180°=S=giù, 270°=O=sinistra
+        const rad = (deg + 180) * Math.PI / 180; // direzione di flusso: dove il vento tira
+        c.save();
+        c.translate(pt.x, pt.y);
+        c.rotate(rad);
+        c.beginPath();
+        c.moveTo(0, -(sz + 7));           // punta
+        c.lineTo(-sz * 0.4, -sz * 0.1);  // base sinistra
+        c.lineTo(0, -sz * 0.5);           // rientranza centrale
+        c.lineTo( sz * 0.4, -sz * 0.1);  // base destra
+        c.closePath();
+        c.fillStyle = '#0369a1';
+        c.strokeStyle = 'rgba(255,255,255,0.85)';
+        c.lineWidth = 1;
+        c.fill();
+        c.stroke();
+        c.restore();
+      });
+    }
+  };
+
   activeChart = new Chart(ctx, {
     type: 'line',
     data: {
@@ -1943,32 +1982,33 @@ function renderWindCombined(stn, sensor) {
         pointHoverRadius: 5, tension: 0.3, fill: true, order: 10
       }]
     },
+    plugins: [windArrowPlugin],
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
+      layout: { padding: { top: 28 } },
       plugins: {
         legend: { display: false },
         tooltip: {
           backgroundColor: 'rgba(15,23,42,0.9)', padding: 10, cornerRadius: 8,
           titleFont: { size: 13 }, bodyFont: { size: 12 },
-          callbacks: { label: item => 'Velocità: ' + item.raw.toFixed(1) + ' ' + sensor.unitnm }
+          callbacks: {
+            label: item => {
+              const vel = 'Velocità: ' + item.raw.toFixed(1) + ' ' + sensor.unitnm;
+              const deg = directions[item.dataIndex];
+              const dir = deg != null ? '  Prov.: ' + windDir(deg) : '';
+              return vel + dir;
+            }
+          }
         },
         zoom: { zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }, pan: { enabled: true, mode: 'x' } }
       },
       scales: {
         x: { ticks: { maxTicksLimit: 6, maxRotation: 0, font: { size: 10 } }, grid: { color: '#f1f5f9' }, border: { display: false } },
-        y: { // Asse SINISTRO per le barre (Precipitazione)
+        y: {
           beginAtZero: true,
-          position: 'left',
-          title: { display: true, text: `Precipitazione (${unit})`, font: { size: 10 } },
+          title: { display: true, text: `Velocità (${sensor.unitnm})`, font: { size: 10 } },
           grid: { color: '#f1f5f9' },
-          border: { display: false }
-        },
-        yAcc: { // Asse DESTRO per le linee (Accumulo)
-          beginAtZero: true,
-          position: 'right',
-          title: { display: true, text: `Accumulo (${unit})`, font: { size: 10 } },
-          grid: { display: false }, // Disattiva la griglia per evitare sovrapposizioni visive
           border: { display: false }
         }
       }
@@ -2267,7 +2307,7 @@ const supportSummary = [
     tbody.appendChild(tr);
   });
 
-  if (activeChart) activeChart.destroy();
+  if (activeChart) { activeChart.destroy(); activeChart = null; }
   const ctx = document.getElementById('sensorChart').getContext('2d');
   Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
   Chart.defaults.color = '#64748b';
@@ -2281,8 +2321,8 @@ const supportSummary = [
           label: `Precipitazione (${unit})`,
           data: bars,
           yAxisID: 'y',
-          backgroundColor: 'rgba(250, 204, 21, 0.85)',
-          borderColor: '#f59e0b',
+          backgroundColor: 'rgba(37,99,235,0.75)',
+          borderColor: '#1d4ed8',
           borderWidth: 1,
           barPercentage: 0.8,
           categoryPercentage: 0.95,
@@ -2352,8 +2392,8 @@ const supportSummary = [
       data: accumulation,
       yAxisID: 'y',
       type: 'line',
-      borderColor: '#3b82f6',
-      backgroundColor: 'rgba(59,130,246,.12)',
+      borderColor: '#f97316',
+      backgroundColor: 'rgba(249,115,22,.12)',
       borderWidth: 2,
       tension: 0.2,
       pointRadius: accumulation.length > 100 ? 0 : 2,
@@ -2367,8 +2407,8 @@ const supportSummary = [
         data: dryingAdjustedAccumulation,
         yAxisID: 'y',
         type: 'line',
-        borderColor: '#ef4444',
-        backgroundColor: 'rgba(239,68,68,.12)',
+        borderColor: '#7c3aed',
+        backgroundColor: 'rgba(124,58,237,.12)',
         borderWidth: 2,
         tension: 0.2,
         pointRadius: dryingAdjustedAccumulation.length > 100 ? 0 : 2,
@@ -2405,7 +2445,14 @@ function renderSensor(stn, sensor) {
   const labels   = chartRows.map(r => r.label);
   const dataVals = chartRows.map(r => r.val);
   const n   = labels.length;
-  const clr = TYPE_COLOR[sensor.type] || TYPE_COLOR.DEFAULT;
+  const clr = (() => {
+    if (TYPE_COLOR[sensor.type]) return TYPE_COLOR[sensor.type];
+    const nm = (sensor.paramnm || '').toLowerCase();
+    if (nm.includes('temp'))                          return TYPE_COLOR.TARIA;
+    if (nm.includes('umid') || nm.includes('humid'))  return TYPE_COLOR.UREL;
+    if (nm.includes('radi') || nm.includes('solar'))  return TYPE_COLOR.RADGLOB;
+    return TYPE_COLOR.DEFAULT;
+  })();
   const yMin = Math.max(0, Math.min(...dataVals) * 0.95);
   const yMax = isLivello && soglie
     ? Math.max(Math.max(...dataVals), Math.max(soglie.s1, soglie.s2, soglie.s3)) * 1.10
@@ -2455,7 +2502,7 @@ function renderSensor(stn, sensor) {
     tbody.appendChild(tr);
   });
 
-  if (activeChart) activeChart.destroy();
+  if (activeChart) { activeChart.destroy(); activeChart = null; }
   const ctx = document.getElementById('sensorChart').getContext('2d');
   
   // Custom font for chart
