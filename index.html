@@ -602,9 +602,9 @@ const API_BASE = "https://parthenocarpically-presymphonic-alesia.ngrok-free.dev"
 const PROXY = 'https://api.allorigins.win/raw?url=';
 
 function withNgrokBypass(url) {
-  if (!url || !url.includes('.ngrok-free.dev')) return url;
+  if (!url || !url.includes('ngrok-free.dev')) return url;
   const sep = url.includes('?') ? '&' : '?';
-  return `${url}${sep}ngrok-skip-browser-warning=true`;
+  return url + sep + 'ngrok-skip-browser-warning=true';
 }
 
 function apiFetch(pathOrUrl, options = {}) {
