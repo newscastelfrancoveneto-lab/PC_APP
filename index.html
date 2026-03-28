@@ -608,7 +608,7 @@ function withNgrokBypass(url) {
 }
 
 function apiFetch(pathOrUrl, options = {}) {
-  const fullUrl = /^https?:/.test(pathOrUrl) ? pathOrUrl : APIBASE + pathOrUrl;
+  const fullUrl = /^https?:/.test(pathOrUrl) ? pathOrUrl : API_BASE + pathOrUrl;
   const url = withNgrokBypass(fullUrl);
   // CORS + NGROK forzato
   const fetchOpts = {
