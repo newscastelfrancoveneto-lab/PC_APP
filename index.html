@@ -2792,11 +2792,15 @@ function urlB64ToUint8Array(base64String) {
   return outputArray;
 }
 
+
 async function subscribeUser() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    console.log('Push non supportato');
-    return;
-  }
+  const btn = document.getElementById('btn-subscribe-main');
+  if (!btn) return console.error('Bottone subscribe non trovato');
+  
+  if (btn.disabled) return;  // Previene double-click
+  
+  btn.disabled = true;
+  btn.textContent = 'Attivando...';
   
   try {
     const reg = await navigator.serviceWorker.ready;
@@ -2817,15 +2821,22 @@ async function subscribeUser() {
       body: JSON.stringify(sub)
     });
     
+    if (!response.ok) throw new Error(`Server ${response.status}`);
+    
     const result = await response.json();
-    console.log('Subscribe OK:', result.count);
-    updateSubscribeButton();  // Aggiorna UI
+    console.log('✅ Subscribe OK:', result);
+    
+    btn.textContent = `Attive (${result.count})`;
+    btn.style.background = '#16A34A';  // Verde OK
     
   } catch (err) {
-    console.error('Subscribe fallito:', err);
+    console.error('❌ Subscribe fallito:', err);
+    btn.textContent = 'Errore - Riprova';
+    btn.style.background = '#DC2626';  // Rosso errore
+  } finally {
+    btn.disabled = false;  // ← RIABILITA SEMPRE!
   }
 }
-
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 initMarkers();
