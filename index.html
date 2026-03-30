@@ -2825,7 +2825,7 @@ async function subscribeUser() {
     
     console.log('Invio subscription:', sub.endpoint.slice(-30));
     
-    const response = await apiFetch('/api/subscribe', {
+    const response = await apiFetch('api/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(sub)
