@@ -848,35 +848,48 @@ function openDB() {
 async function loadSavedNotifications() {
   const listEl = document.querySelector('.notifications-list');
   if (!listEl) return;
-  
-  // 1. IndexedDB (principale: notifiche dal SW quando app chiusa)
+
+  // 1. IndexedDB principale (notifiche dal SW quando app chiusa)
   let notifications = [];
   try {
     const db = await openDB();
-    notifications = await db.transaction('notifications', 'readonly').objectStore('notifications').getAll();
-    //notifications.reverse(); // più recenti prima
-  } catch (e) { console.warn('IndexedDB load failed', e); }
-  
+    notifications = await db.transaction('notifications', 'readonly')
+      .objectStore('notifications').getAll();
+    notifications.reverse(); // Più recenti prima
+  } catch (e) {
+    console.warn('IndexedDB load failed', e);
+  }
+
   // 2. LocalStorage fallback (vecchie notifiche)
   let saved = [];
   try {
     saved = JSON.parse(localStorage.getItem('notifList') || '[]');
   } catch {}
-  
+
   // Merge + deduplica (timestamp + title)
-  const all = [...notifications, ...saved].filter((n, i, arr) => 
+  const all = [...notifications, ...saved.filter((n, i, arr) => 
     arr.findIndex(m => m.timestamp === n.timestamp && m.title === n.title) === i
-  );
-  
+  )];
+
   if (all.length === 0) {
     listEl.innerHTML = '<p class="notification-placeholder">Nessuna notifica recente</p>';
     return;
   }
-  
-  const listEl = document.querySelector('.notifications-list')
-  listEl.innerHTML = ''
-  all.slice(0, 20).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).forEach(n => 
-  listEl.appendChild(listEl.querySelector('.notification-item') || document.createElement('div')).cloneNode(true) ? No, usa prepend in addNotificationToUI che già mette in cima
+
+  // Pulisci e ricarica con più recenti in ALTO
+  listEl.innerHTML = '';
+  all.slice(0, 20)
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+    .forEach(notif => {
+      const item = document.createElement('div');
+      item.className = 'notification-item';
+      item.innerHTML = `
+        <div class="notif-title">${notif.title}</div>
+        <div class="notif-body">${notif.body}</div>
+        <div class="notif-time">${notif.timestamp}</div>
+      `;
+      listEl.prepend(item);
+    });
 }
 
 // Svuota tutto
