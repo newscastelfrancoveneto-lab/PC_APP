@@ -854,7 +854,7 @@ async function loadSavedNotifications() {
   try {
     const db = await openDB();
     notifications = await db.transaction('notifications', 'readonly').objectStore('notifications').getAll();
-    notifications.reverse(); // più recenti prima
+    //notifications.reverse(); // più recenti prima
   } catch (e) { console.warn('IndexedDB load failed', e); }
   
   // 2. LocalStorage fallback (vecchie notifiche)
@@ -873,8 +873,10 @@ async function loadSavedNotifications() {
     return;
   }
   
-  listEl.innerHTML = '';
-  all.slice(0, 20).forEach(n => addNotificationToUI(n, false)); // false: non ri-salvare
+  const listEl = document.querySelector('.notifications-list')
+  listEl.innerHTML = ''
+  all.slice(0, 20).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).forEach(n => 
+  listEl.appendChild(listEl.querySelector('.notification-item') || document.createElement('div')).cloneNode(true) ? No, usa prepend in addNotificationToUI che già mette in cima
 }
 
 // Svuota tutto
