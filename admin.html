@@ -666,7 +666,6 @@ async function loadOsmData() {
 
   if (osmFetchController) osmFetchController.abort();
   osmFetchController = new AbortController();
-  state.textContent = 'Scaricamento dati OSM in corso...';
   setOsmLoaderState(true, 'Caricamento dati OSM...');
   const query = overpassQueryForBounds(bounds);
   const data = await Promise.race([
