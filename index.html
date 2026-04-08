@@ -1284,6 +1284,40 @@ function closureAlertStyle() {
   };
 }
 
+function getClosureAlertDateRange(properties = {}) {
+  const startDate = properties.startDate || '';
+  const endDate = properties.endDate || '';
+  const startTime = properties.startTime || '00:00';
+  const endTime = properties.endTime || '23:59';
+  const start = startDate ? new Date(`${startDate}T${startTime}`) : null;
+  const end = endDate ? new Date(`${endDate}T${endTime}`) : null;
+  return {
+    start: start && !Number.isNaN(start.getTime()) ? start : null,
+    end: end && !Number.isNaN(end.getTime()) ? end : null
+  };
+}
+
+function getClosureAlertStatus(properties = {}, now = new Date()) {
+  const { start, end } = getClosureAlertDateRange(properties);
+  if (end && end < now) return 'ended';
+  if (start && start > now) return 'upcoming';
+  return 'active';
+}
+
+function closureAlertStyleByStatus(status) {
+  if (status === 'upcoming') {
+    return {
+      color: '#c2410c',
+      fillColor: '#fb923c',
+      weight: 3,
+      opacity: 0.95,
+      fillOpacity: 0.35,
+      radius: 8
+    };
+  }
+  return closureAlertStyle();
+}
+
 function escapeHtml(text) {
   return String(text || '')
     .replaceAll('&', '&amp;')
@@ -1298,12 +1332,14 @@ function closureAlertPopupHtml(properties = {}) {
   const description = escapeHtml(properties.description || 'Nessuna descrizione disponibile.');
   const startDate = escapeHtml(properties.startDate || '-');
   const endDate = escapeHtml(properties.endDate || '-');
+  const startTime = escapeHtml(properties.startTime || '--:--');
+  const endTime = escapeHtml(properties.endTime || '--:--');
 
   return `<div style="font-family:'Inter',sans-serif;font-size:0.9rem;line-height:1.45;">
     <strong style="color:#991b1b;font-size:1rem;">${title}</strong>
     <div style="margin-top:6px;color:#334155;">${description}</div>
     <div style="margin-top:8px;font-size:0.78rem;color:#64748b;">
-      <strong>Periodo:</strong> ${startDate} → ${endDate}
+      <strong>Periodo:</strong> ${startDate} ${startTime} → ${endDate} ${endTime}
     </div>
   </div>`;
 }
@@ -1311,10 +1347,13 @@ function closureAlertPopupHtml(properties = {}) {
 function renderClosureAlerts(geojson) {
   closureAlertLayerGroup.clearLayers();
   if (!geojson?.features?.length) return;
+  const now = new Date();
+  const features = geojson.features.filter((feature) => getClosureAlertStatus(feature.properties || {}, now) !== 'ended');
+  if (!features.length) return;
 
-  L.geoJSON(geojson, {
-    style: closureAlertStyle,
-    pointToLayer: (_, latlng) => L.circleMarker(latlng, closureAlertStyle()),
+  L.geoJSON({ ...geojson, features }, {
+    style: (feature) => closureAlertStyleByStatus(getClosureAlertStatus(feature.properties || {}, now)),
+    pointToLayer: (feature, latlng) => L.circleMarker(latlng, closureAlertStyleByStatus(getClosureAlertStatus(feature.properties || {}, now))),
     onEachFeature: (feature, layer) => {
       layer.bindPopup(closureAlertPopupHtml(feature.properties || {}));
       closureAlertLayerGroup.addLayer(layer);
