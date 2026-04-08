@@ -2,221 +2,411 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>Admin Chiusure - Castelfranco Veneto</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
   <style>
-    :root { --primary:#8d021f; --ok:#166534; --danger:#b91c1c; --card:#ffffff; --border:#e2e8f0; --muted:#64748b; }
+    :root { 
+      --primary: #8d021f; 
+      --primary-hover: #75021a;
+      --primary-light: #fef2f2;
+      --ok: #16a34a; 
+      --danger: #dc2626; 
+      --bg-body: #f8fafc;
+      --bg-panel: #ffffff;
+      --border: #e2e8f0; 
+      --text-main: #0f172a;
+      --text-muted: #64748b; 
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+      --radius-md: 8px;
+      --radius-lg: 12px;
+    }
+
     * { box-sizing: border-box; }
-    body { margin:0; font-family: Inter, Arial, sans-serif; color:#0f172a; background:linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%); }
-    #login, #admin { min-height:100vh; }
-    #login { display:flex; align-items:center; justify-content:center; background:#f1f5f9; }
-    .card { background:#fff; padding:20px; width:min(420px,92vw); border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.12); }
-    h1 { font-size:1.2rem; margin:0 0 10px; }
-    label { display:block; font-size:.85rem; margin:10px 0 4px; }
-    input, textarea, select, button { width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font:inherit; }
-    button { cursor:pointer; font-weight:600; }
-    .btn-primary { background:var(--primary); color:#fff; border-color:var(--primary); }
-    .btn-danger { background:#fff1f2; border-color:#fecdd3; color:var(--danger); }
-    .btn-ok { background:#ecfdf5; border-color:#bbf7d0; color:var(--ok); }
-    .topbar {
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:16px;
-      padding:12px 16px;
-      background:linear-gradient(115deg, #ffffff 0%, #f8fafc 55%, #eef2ff 100%);
-      border-bottom:1px solid var(--border);
-      position:sticky;
-      top:0;
-      z-index:1000;
-      box-shadow:0 10px 24px rgba(15,23,42,.08);
+    
+    body { 
+      margin: 0; 
+      font-family: 'Inter', sans-serif; 
+      color: var(--text-main); 
+      background: var(--bg-body);
+      -webkit-font-smoothing: antialiased;
     }
-    .topbar-meta { display:flex; flex-direction:column; gap:4px; min-width:220px; }
-    .topbar-badge {
-      width:max-content;
-      font-size:.7rem;
-      letter-spacing:.06em;
-      text-transform:uppercase;
-      font-weight:700;
-      color:#7f1d1d;
-      background:#fee2e2;
-      border:1px solid #fecaca;
-      border-radius:999px;
-      padding:3px 9px;
+
+    /* --- LOGIN --- */
+    #login { 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      min-height: 100vh; 
+      background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+      padding: 20px;
     }
-    .topbar-title { margin:0; font-size:1.05rem; font-weight:750; color:#0f172a; }
-    .topbar-subtitle { margin:0; font-size:.8rem; color:#64748b; }
-    .topbar-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
-    .topbar-actions .cluster {
-      display:flex;
-      align-items:center;
-      gap:8px;
-      flex-wrap:wrap;
+    
+    .login-card { 
+      background: #fff; 
+      padding: 32px 28px; 
+      width: 100%;
+      max-width: 400px; 
+      border-radius: var(--radius-lg); 
+      box-shadow: var(--shadow-lg); 
+      text-align: center;
     }
+
+    .login-card h1 { font-size: 1.5rem; margin: 0 0 8px; color: var(--primary); }
+    .login-card p { font-size: 0.9rem; color: var(--text-muted); margin: 0 0 24px; line-height: 1.4; }
+    .login-card label { text-align: left; font-weight: 500; color: #334155; }
+
+    /* --- FORMS & BUTTONS --- */
+    label { display: block; font-size: 0.875rem; margin: 12px 0 6px; font-weight: 500; }
+    
+    input, textarea, select { 
+      width: 100%; 
+      padding: 10px 14px; 
+      border: 1px solid var(--border); 
+      border-radius: var(--radius-md); 
+      font-family: inherit;
+      font-size: 0.95rem;
+      background: #fff;
+      transition: all 0.2s ease;
+    }
+    
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(141, 2, 31, 0.15);
+    }
+
+    button { 
+      cursor: pointer; 
+      font-weight: 600; 
+      font-family: inherit;
+      border-radius: var(--radius-md);
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 16px;
+      border: 1px solid transparent;
+      font-size: 0.9rem;
+    }
+
+    button:active { transform: scale(0.98); }
+
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    
+    .btn-danger { background: #fff1f2; border-color: #fecdd3; color: var(--danger); }
+    .btn-danger:hover { background: #ffe4e6; }
+    
+    .btn-ok { background: #ecfdf5; border-color: #bbf7d0; color: var(--ok); }
+    .btn-ok:hover { background: #d1fae5; }
+
     .btn-ghost {
-      width:auto;
-      min-height:40px;
-      padding:0 14px;
-      border-radius:10px;
-      border:1px solid #cbd5e1;
-      background:#fff;
-      color:#0f172a;
-      font-weight:700;
-      box-shadow:0 4px 12px rgba(15,23,42,.08);
-      transition:all .16s ease;
+      background: #fff;
+      border-color: var(--border);
+      color: var(--text-main);
+      box-shadow: var(--shadow-sm);
     }
-    .btn-ghost:hover { transform:translateY(-1px); border-color:#94a3b8; box-shadow:0 8px 20px rgba(15,23,42,.12); }
-    .btn-ghost:active { transform:translateY(0); }
+    .btn-ghost:hover { background: #f8fafc; border-color: #cbd5e1; }
+
+    .btn-small { padding: 6px 12px; font-size: 0.8rem; }
+
+    /* --- LAYOUT --- */
+    #admin { display: none; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+    
+    .layout { 
+      display: flex; 
+      flex: 1; 
+      overflow: hidden; 
+      position: relative;
+    }
+    
+    .panel { 
+      width: 420px; 
+      background: var(--bg-panel); 
+      border-right: 1px solid var(--border); 
+      overflow-y: auto; 
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      z-index: 10;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.03);
+    }
+    
+    #map { flex: 1; height: 100%; z-index: 1; background: #e5e7eb; }
+
+    /* --- TOPBAR --- */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 24px;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      z-index: 1000;
+    }
+
+    .topbar-meta { display: flex; flex-direction: column; gap: 4px; }
+    
+    .topbar-badge {
+      width: max-content;
+      font-size: 0.7rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--primary);
+      background: var(--primary-light);
+      border-radius: 999px;
+      padding: 4px 10px;
+    }
+    
+    .topbar-title { margin: 0; font-size: 1.1rem; font-weight: 700; }
+    .topbar-subtitle { margin: 0; font-size: 0.85rem; color: var(--text-muted); }
+    
+    .topbar-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    
     .topbar-link {
-      display:flex;
-      align-items:center;
-      width:auto;
-      min-height:40px;
-      padding:0 14px;
-      border:1px solid #fecaca;
-      border-radius:10px;
-      text-decoration:none;
-      color:#7f1d1d;
-      background:linear-gradient(180deg, #fff 0%, #fff1f2 100%);
-      font-weight:700;
-      box-shadow:0 4px 12px rgba(185,28,28,.14);
-      transition:all .16s ease;
+      display: inline-flex;
+      align-items: center;
+      padding: 10px 16px;
+      border: 1px solid #fecaca;
+      border-radius: var(--radius-md);
+      text-decoration: none;
+      color: var(--primary);
+      background: var(--primary-light);
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.2s ease;
     }
-    .topbar-link:hover { transform:translateY(-1px); box-shadow:0 8px 18px rgba(185,28,28,.2); }
+    .topbar-link:hover { background: #fce8e8; }
+
+    /* --- OSM LOADER --- */
     .osm-loader {
-      display:flex;
-      align-items:center;
-      gap:8px;
-      min-height:40px;
-      padding:0 12px;
-      border-radius:10px;
-      border:1px solid #cbd5e1;
-      background:#fff;
-      color:#475569;
-      font-size:.8rem;
-      font-weight:600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: #f8fafc;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 600;
     }
+    .osm-loader.loading { color: #0284c7; border-color: #bae6fd; background: #f0f9ff; }
+    
     .spinner {
-      width:16px;
-      height:16px;
-      border:2px solid #cbd5e1;
-      border-top-color:#0ea5e9;
-      border-radius:50%;
-      display:none;
-      animation:spin .9s linear infinite;
+      width: 14px;
+      height: 14px;
+      border: 2px solid #cbd5e1;
+      border-top-color: currentColor;
+      border-radius: 50%;
+      display: none;
+      animation: spin 0.8s linear infinite;
     }
-    .osm-loader.loading .spinner { display:inline-block; }
-    .osm-loader.loading { color:#0f172a; border-color:#bae6fd; background:#f0f9ff; }
-    @keyframes spin { to { transform:rotate(360deg); } }
-    .layout { display:grid; grid-template-columns:360px 1fr; min-height:calc(100vh - 62px); }
-    .panel { padding:14px; background:transparent; border-right:1px solid var(--border); overflow:auto; }
-    #map { min-height:calc(100vh - 62px); }
-    .hint { font-size:.78rem; color:#475569; margin-top:6px; }
-    .row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-    .mode-switch { display:flex; align-items:center; gap:8px; width:auto; white-space:nowrap; font-size:.9rem; padding:0 10px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; }
-    .mode-switch input { width:auto; margin:0; }
-    .panel-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px; box-shadow:0 10px 20px rgba(15,23,42,.06); margin-bottom:12px; }
-    .list { display:grid; gap:8px; margin-top:8px; }
-    .alert-item { border:1px solid var(--border); border-radius:10px; padding:10px; background:#fff; }
-    .alert-item.alert-active { border-color:#fecaca; background:#fff1f2; }
-    .alert-item.alert-upcoming { border-color:#fed7aa; background:#fff7ed; }
-    .alert-head { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
-    .alert-title { margin:0; font-size:.95rem; font-weight:700; }
-    .alert-meta { margin:4px 0 0; font-size:.78rem; color:var(--muted); }
-    .alert-desc { margin:6px 0 0; font-size:.82rem; color:#334155; }
-    .btn-small { width:auto; padding:6px 10px; font-size:.78rem; border-radius:8px; }
-    .empty { color:var(--muted); font-size:.82rem; border:1px dashed #cbd5e1; border-radius:10px; padding:10px; background:#f8fafc; }
+    .osm-loader.loading .spinner { display: block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* --- PANEL COMPONENTS --- */
+    .panel-card { 
+      background: #fff; 
+      border: 1px solid var(--border); 
+      border-radius: var(--radius-lg); 
+      padding: 20px; 
+      box-shadow: var(--shadow-sm); 
+    }
+    
+    .panel-card h1 { font-size: 1.15rem; margin: 0 0 8px; font-weight: 700; }
+    .hint { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px; line-height: 1.4; }
+    
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    #state { margin-top: 16px; font-weight: 500; font-size: 0.85rem; color: #0369a1; padding: 10px; background: #f0f9ff; border-radius: var(--radius-md); display: none;}
+    #state:not(:empty) { display: block; }
+
+    /* --- ALERT LIST --- */
+    .list { display: grid; gap: 12px; margin-top: 16px; }
+    
+    .alert-item { 
+      border: 1px solid var(--border); 
+      border-radius: var(--radius-md); 
+      padding: 14px; 
+      background: #fff;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .alert-item:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    
+    /* Indicatore laterale colorato */
+    .alert-item::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+    }
+    
+    .alert-item.alert-active { border-color: #fca5a5; background: #fef2f2; }
+    .alert-item.alert-active::before { background: var(--danger); }
+    
+    .alert-item.alert-upcoming { border-color: #fed7aa; background: #fff7ed; }
+    .alert-item.alert-upcoming::before { background: #f97316; }
+
+    .alert-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .alert-title { margin: 0; font-size: 1rem; font-weight: 600; color: #1e293b; }
+    .alert-meta { margin: 6px 0 0; font-size: 0.8rem; color: #475569; font-weight: 500; display: flex; align-items: center; gap: 4px; }
+    .alert-desc { margin: 8px 0 0; font-size: 0.85rem; color: #334155; line-height: 1.4; }
+    
+    .empty { color: var(--text-muted); font-size: 0.9rem; border: 2px dashed var(--border); border-radius: var(--radius-lg); padding: 24px; text-align: center; background: #f8fafc; }
+
+    /* --- MOBILE RESPONSIVENESS --- */
     @media (max-width: 960px) {
-      .layout { grid-template-columns: 1fr; min-height:auto; }
-      .panel { border-right:none; border-bottom:1px solid var(--border); max-height:none; }
-      #map { min-height:56vh; height:56vh; }
-      .topbar { flex-direction:column; align-items:stretch; }
-      .topbar-meta { min-width:0; }
-      .topbar-actions { justify-content:flex-start; }
-      .topbar-actions > * { flex:1 1 calc(50% - 8px); min-width:150px; }
-      .topbar a, .topbar button, .topbar .mode-switch { min-height:44px; }
+      #admin { height: auto; min-height: 100vh; overflow: visible; }
+      
+      .topbar { flex-direction: column; align-items: flex-start; padding: 16px; gap: 16px; }
+      .topbar-subtitle { display: none; } /* Nascondi sottotitolo per spazio */
+      .topbar-actions { width: 100%; justify-content: stretch; }
+      .topbar-actions > button, .topbar-actions > a, .topbar-actions > div { flex: 1; text-align: center; justify-content: center; }
+      
+      .layout { flex-direction: column; overflow: visible; }
+      
+      /* Mappa sticky in alto su mobile */
+      #map { 
+        height: 45vh; 
+        min-height: 300px;
+        flex: none; 
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        border-bottom: 2px solid var(--primary);
+      }
+      
+      .panel { 
+        width: 100%; 
+        border-right: none; 
+        padding: 16px; 
+        overflow: visible; /* Lascia scorrere la pagina */
+      }
     }
+
     @media (max-width: 640px) {
-      .card { width:min(96vw, 420px); padding:16px; }
-      .panel { padding:10px; }
-      .topbar { gap:10px; padding:10px; }
-      .topbar-actions > * { flex:1 1 100%; }
-      .row { grid-template-columns:1fr; }
-      #map { min-height:50vh; height:50vh; }
-      input, textarea, select, button { padding:12px; font-size:16px; }
+      .login-card { padding: 24px 20px; }
+      .row { grid-template-columns: 1fr; gap: 0; }
+      .topbar-actions { flex-direction: column; }
+      .topbar-actions > * { width: 100%; }
+      #map { height: 40vh; }
     }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
   </style>
 </head>
 <body>
+
 <div id="login">
-  <div class="card">
-    <h1>Login Admin (Chiusure)</h1>
-    <p style="font-size:.85rem;color:#475569;margin:0 0 10px;">Accesso richiesto per creare avvisi su punti, linee e aree.</p>
-    <label>Username</label><input id="username" value="admin" />
-    <label>Password</label><input id="password" type="password" placeholder="••••••••" />
-    <button class="btn-primary" id="loginBtn">Accedi</button>
-    <div id="loginMsg" class="hint"></div>
+  <div class="login-card">
+    <h1>Amministrazione Chiusure</h1>
+    <p>Accesso richiesto per creare avvisi su punti, linee e aree.</p>
+    <div style="margin-bottom: 16px;">
+      <label>Username</label>
+      <input id="username" value="admin" autocomplete="off" />
+    </div>
+    <div style="margin-bottom: 24px;">
+      <label>Password</label>
+      <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+    <button class="btn-primary" id="loginBtn" style="width: 100%; padding: 12px; font-size: 1rem;">Accedi al Pannello</button>
+    <div id="loginMsg" class="hint" style="margin-top: 16px; color: var(--danger);"></div>
   </div>
 </div>
 
 <div id="admin" style="display:none;">
   <div class="topbar">
     <div class="topbar-meta">
-      <span class="topbar-badge">Pannello amministratore</span>
-      <p class="topbar-title">Gestione avvisi chiusura strade</p>
-      <p class="topbar-subtitle">Configura in modo rapido nuove chiusure e controlla gli avvisi pubblicati.</p>
+      <span class="topbar-badge">Pannello Amministratore</span>
+      <p class="topbar-title">Gestione chiusure strade</p>
+      <p class="topbar-subtitle">Configura e gestisci rapidamente gli avvisi sul territorio.</p>
     </div>
     <div class="topbar-actions">
-      <button class="btn-ok" id="saveBtn">Salva avviso</button>
-      <button class="btn-danger" id="clearDraftBtn">Cancella geometria</button>
-      <div class="cluster">
-        <button id="modeToggleBtn" class="btn-ghost" type="button" title="Attiva/disattiva modalità editing con caricamento OSM">
-          Modalità avvisi attivi
-        </button>
-        <a href="./index.html" class="topbar-link">Apri mappa pubblica</a>
-        <div id="osmLoader" class="osm-loader" aria-live="polite">
-          <span class="spinner" aria-hidden="true"></span>
-          <span id="osmLoaderText">Dati OSM pronti</span>
-        </div>
+      <button class="btn-ok" id="saveBtn">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+        Salva avviso
+      </button>
+      <button class="btn-danger" id="clearDraftBtn">Cancella selezione</button>
+      <button id="modeToggleBtn" class="btn-ghost" type="button" title="Attiva/disattiva modalità editing">
+        Modalità avvisi attivi
+      </button>
+      <div id="osmLoader" class="osm-loader" aria-live="polite">
+        <span class="spinner" aria-hidden="true"></span>
+        <span id="osmLoaderText">Dati OSM pronti</span>
       </div>
-      <button id="logoutBtn">Logout</button>
+      <a href="./index.html" class="topbar-link">Mappa Pubblica</a>
+      <button id="logoutBtn" class="btn-ghost">Logout</button>
     </div>
   </div>
+  
   <div class="layout">
     <div class="panel">
       <div class="panel-card">
-        <h1>Nuovo avviso chiusura</h1>
-        <p class="hint">La geometria viene presa da OpenStreetMap: i dati dell'area visibile si aggiornano automaticamente mentre scorri la mappa. Clicca sulla mappa per selezionare o deselezionare più elementi OSM insieme.</p>
+        <h1 id="panelTitle">Nuovo avviso chiusura</h1>
+        <p class="hint" id="panelHint">Sposta la mappa per caricare i dati OSM. Clicca sugli elementi per selezionarli e compila il form.</p>
 
-        <label>Titolo</label><input id="title" placeholder="Es. Chiusura Via Roma" />
-        <label>Descrizione</label><textarea id="description" rows="4" placeholder="Dettagli lavori/evento..."></textarea>
+        <label>Titolo dell'avviso</label>
+        <input id="title" placeholder="Es. Chiusura Via Roma per Lavori" />
+        
+        <label>Descrizione dettagliata</label>
+        <textarea id="description" rows="3" placeholder="Aggiungi dettagli, deviazioni, motivazioni..."></textarea>
+        
         <div class="row">
           <div><label>Data inizio</label><input id="startDate" type="date" /></div>
-          <div><label>Data fine</label><input id="endDate" type="date" /></div>
-        </div>
-        <div class="row">
           <div><label>Ora inizio</label><input id="startTime" type="time" /></div>
+        </div>
+        <div class="row" style="margin-top: 12px;">
+          <div><label>Data fine</label><input id="endDate" type="date" /></div>
           <div><label>Ora fine</label><input id="endTime" type="time" /></div>
         </div>
-        <div id="state" class="hint"></div>
+        
+        <div id="state"></div>
       </div>
+
       <div class="panel-card">
-        <h1>Gestione avvisi</h1>
-        <p class="hint">Qui puoi eliminare tutti gli avvisi o rimuoverli singolarmente.</p>
-        <button id="deleteAllBtn" class="btn-danger">Elimina tutti gli avvisi</button>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h1 style="margin: 0;">Gestione avvisi</h1>
+          <button id="deleteAllBtn" class="btn-danger btn-small">Svuota tutto</button>
+        </div>
+        <p class="hint" style="margin-bottom: 0;">Elenco degli avvisi attualmente configurati a sistema.</p>
         <div id="alertsList" class="list"></div>
       </div>
     </div>
+    
     <div id="map"></div>
   </div>
 </div>
 
 <script>
+// ---------- LOGICA JAVASCRIPT ORIGINALE (Invariata) ----------
 const ADMIN_USER = 'admin';
 const ADMIN_PASS = 'admin123';
 const AUTH_KEY = 'closure_admin_logged';
@@ -236,7 +426,7 @@ const loginMsg = document.getElementById('loginMsg');
 function setLogged(value) {
   sessionStorage.setItem(AUTH_KEY, value ? '1' : '0');
   login.style.display = value ? 'none' : 'flex';
-  admin.style.display = value ? 'block' : 'none';
+  admin.style.display = value ? 'flex' : 'none'; // Cambiato da 'block' a 'flex' per il layout css moderno
   if (value && !window._adminMapInit) {
     initAdminMap();
   } else if (value && map) {
@@ -253,7 +443,7 @@ document.getElementById('loginBtn').onclick = () => {
   const u = document.getElementById('username').value.trim();
   const p = document.getElementById('password').value;
   if (u === ADMIN_USER && p === ADMIN_PASS) return setLogged(true);
-  loginMsg.textContent = 'Credenziali non valide.';
+  loginMsg.textContent = 'Credenziali non valide. Riprova.';
 };
 
 document.getElementById('logoutBtn').onclick = () => setLogged(false);
@@ -312,9 +502,9 @@ function getAlertStatus(properties = {}, now = new Date()) {
 
 function styleByStatus(status) {
   if (status === 'upcoming') {
-    return { color:'#c2410c', fillColor:'#fb923c', weight:3, fillOpacity:.35 };
+    return { color:'#f97316', fillColor:'#fed7aa', weight:3, fillOpacity:.35 };
   }
-  return { color:'#b91c1c', fillColor:'#dc2626', weight:3, fillOpacity:.35 };
+  return { color:'#dc2626', fillColor:'#fca5a5', weight:3, fillOpacity:.35 };
 }
 
 function style() {
@@ -327,25 +517,25 @@ function resetDraft() {
   selectedOSMIds = new Set();
   draftLayer.clearLayers();
   renderOsmFeatures();
-  document.getElementById('state').textContent = 'Bozza cancellata.';
+  document.getElementById('state').textContent = 'Bozza cancellata. Seleziona nuovi elementi.';
 }
 
 function setMode(editingEnabled) {
   isEditingMode = Boolean(editingEnabled);
   const modeButton = document.getElementById('modeToggleBtn');
-  const panelTitle = document.querySelector('.panel h1');
-  const panelHint = document.querySelector('.panel .hint');
+  const panelTitle = document.getElementById('panelTitle');
+  const panelHint = document.getElementById('panelHint');
   const saveBtn = document.getElementById('saveBtn');
   const clearDraftBtn = document.getElementById('clearDraftBtn');
 
   modeButton.textContent = isEditingMode ? 'Modalità editing (OSM)' : 'Modalità avvisi attivi';
-  panelTitle.textContent = isEditingMode ? 'Nuovo avviso chiusura' : 'Avvisi attivi';
+  panelTitle.textContent = isEditingMode ? 'Nuovo avviso chiusura' : 'Avvisi attivi (Sola lettura)';
   panelHint.textContent = isEditingMode
     ? "La geometria viene presa da OpenStreetMap: i dati dell'area visibile si aggiornano automaticamente mentre scorri la mappa. Clicca sulla mappa per selezionare o deselezionare più elementi OSM insieme."
-    : 'Visualizzazione sola lettura degli avvisi già attivi.';
+    : 'Visualizzazione di sola lettura degli avvisi già attivi sulla mappa.';
 
-  saveBtn.style.display = isEditingMode ? '' : 'none';
-  clearDraftBtn.style.display = isEditingMode ? '' : 'none';
+  saveBtn.style.display = isEditingMode ? 'inline-flex' : 'none';
+  clearDraftBtn.style.display = isEditingMode ? 'inline-flex' : 'none';
 
   if (!map) return;
 
@@ -360,7 +550,7 @@ function setMode(editingEnabled) {
     if (osmFetchController) osmFetchController.abort();
     map.removeLayer(osmSourceLayer);
     map.removeLayer(draftLayer);
-    document.getElementById('state').textContent = 'Visualizzazione avvisi attivi.';
+    document.getElementById('state').textContent = 'Sei in visualizzazione avvisi attivi.';
     setOsmLoaderState(false, 'Caricamento OSM disattivato');
   }
 }
@@ -380,7 +570,7 @@ function refreshAlerts() {
     onEachFeature: (f,l) => {
       const p = f.properties || {};
       const osmNames = Array.isArray(p.osmNames) ? p.osmNames.filter(Boolean) : [];
-      const namesHtml = osmNames.length ? `<br><small><strong>Vie/aree/punti:</strong> ${osmNames.join(', ')}</small>` : '';
+      const namesHtml = osmNames.length ? `<br><small><strong>Aree:</strong> ${osmNames.join(', ')}</small>` : '';
       l.bindPopup(`<strong>${p.title || 'Avviso'}</strong><br>${p.description || ''}${namesHtml}<br><small>${p.startDate || '-'} ${p.startTime || '--:--'} → ${p.endDate || '-'} ${p.endTime || '--:--'}</small>`);
     }
   }).addTo(alertsLayer);
@@ -391,7 +581,7 @@ function renderAlertsList(features, now = new Date()) {
   const list = document.getElementById('alertsList');
   if (!list) return;
   if (!features.length) {
-    list.innerHTML = '<div class="empty">Nessun avviso presente.</div>';
+    list.innerHTML = '<div class="empty">Nessun avviso attualmente presente.</div>';
     return;
   }
   list.innerHTML = features.map((feature, index) => {
@@ -401,14 +591,17 @@ function renderAlertsList(features, now = new Date()) {
     const itemClass = status === 'upcoming' ? 'alert-upcoming' : 'alert-active';
     const osmNames = Array.isArray(p.osmNames) ? p.osmNames.filter(Boolean) : [];
     const namesText = osmNames.length
-      ? `<p class="alert-desc"><strong>Vie/aree/punti:</strong> ${osmNames.join(', ')}</p>`
+      ? `<p class="alert-desc"><strong>Aree:</strong> ${osmNames.join(', ')}</p>`
       : '';
     return `<div class="alert-item ${itemClass}">
       <div class="alert-head">
         <p class="alert-title">${p.title || `Avviso #${index + 1}`}</p>
         <button class="btn-danger btn-small" data-alert-id="${id}" data-alert-index="${index}">Elimina</button>
       </div>
-      <p class="alert-meta">${p.startDate || '-'} ${p.startTime || '--:--'} → ${p.endDate || '-'} ${p.endTime || '--:--'}</p>
+      <p class="alert-meta">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+        ${p.startDate || '-'} ${p.startTime || '--:--'} &rarr; ${p.endDate || '-'} ${p.endTime || '--:--'}
+      </p>
       <p class="alert-desc">${p.description || 'Nessuna descrizione.'}</p>
       ${namesText}
     </div>`;
@@ -461,10 +654,10 @@ function osmFeatureStyle(feature) {
   const hasGeometry = Boolean(normalizeGeometryForDraft(feature.geometry));
   const isSelected = selectedOSMIds.has(feature.properties?._osmId);
   return {
-    color: isSelected ? '#16a34a' : hasGeometry ? '#2563eb' : '#94a3b8',
+    color: isSelected ? '#16a34a' : hasGeometry ? '#3b82f6' : '#94a3b8',
     fillColor: isSelected ? '#22c55e' : hasGeometry ? '#60a5fa' : '#cbd5e1',
-    fillOpacity: isSelected ? 0.35 : hasGeometry ? 0.2 : 0.08,
-    weight: isSelected ? 6 : 4
+    fillOpacity: isSelected ? 0.35 : hasGeometry ? 0.15 : 0.05,
+    weight: isSelected ? 5 : 3
   };
 }
 
@@ -547,7 +740,6 @@ function overpassQueryForBounds(bounds) {
 );
 out geom;`;
 }
-
 
 function getViewportCacheKey(bounds, zoom) {
   return [
@@ -658,7 +850,7 @@ async function loadOsmData() {
   if (cachedFeatures) {
     osmFeaturesCache = cachedFeatures;
     renderOsmFeatures();
-    setOsmLoaderState(false, `OSM cache: ${osmFeaturesCache.length} elementi`);
+    setOsmLoaderState(false, `OSM: ${osmFeaturesCache.length} elementi`);
     return;
   }
 
@@ -708,12 +900,15 @@ function selectOSMFeature(feature) {
   updateDraftGeometryFromSelection();
   drawDraft();
   renderOsmFeatures();
-  setOsmLoaderState(false, `OSM selezionati: ${selectedOSMFeatures.length}`);
+  setOsmLoaderState(false, `Selezionati: ${selectedOSMFeatures.length}`);
 }
 
 function initAdminMap() {
   window._adminMapInit = true;
-  map = L.map('map', { center:[45.664,11.958], zoom:13, maxZoom:22 });
+  map = L.map('map', { center:[45.664,11.958], zoom:13, maxZoom:22, zoomControl: false });
+  // Riposizioniamo lo zoom control in basso a destra per non coprire elementi su mobile
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
+
   L.tileLayer(`https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png?v=${TILE_CACHE_BUSTER}`, { attribution:'© OpenStreetMap', maxZoom:22 }).addTo(map);
   draftLayer = L.layerGroup().addTo(map);
   alertsLayer = L.layerGroup().addTo(map);
@@ -733,7 +928,7 @@ function initAdminMap() {
   requestAnimationFrame(() => map.invalidateSize(true));
   document.getElementById('clearDraftBtn').onclick = resetDraft;
   document.getElementById('modeToggleBtn').onclick = () => setMode(!isEditingMode);
-  const publicMapLink = document.querySelector('.topbar a[href="./index.html"]');
+  const publicMapLink = document.querySelector('.topbar-link');
   if (publicMapLink) {
     publicMapLink.addEventListener('click', forceLogoutOnExit);
   }
@@ -749,7 +944,7 @@ function initAdminMap() {
     const osmNames = getSelectedOSMNames();
 
     if (!title || !description || !startDate || !endDate || !startTime || !endTime || !geometry) {
-      return alert('Compila tutti i campi e disegna una geometria valida.');
+      return alert('Compila tutti i campi e disegna/seleziona una geometria valida sulla mappa.');
     }
 
     const fc = getData();
@@ -772,11 +967,16 @@ function initAdminMap() {
 
     refreshAlerts();
     resetDraft();
-    alert('Avviso salvato. Visibile nella mappa pubblica su questo dispositivo.');
+    document.getElementById('title').value = '';
+    document.getElementById('description').value = '';
+    
+    const stateEl = document.getElementById('state');
+    stateEl.textContent = '✅ Avviso salvato con successo!';
+    setTimeout(() => { stateEl.textContent = ''; }, 3000);
   };
 
   document.getElementById('deleteAllBtn').onclick = () => {
-    if (!confirm('Eliminare tutti gli avvisi?')) return;
+    if (!confirm('Sei sicuro di voler eliminare TUTTI gli avvisi?')) return;
     saveData({ type:'FeatureCollection', features:[] });
     refreshAlerts();
   };
