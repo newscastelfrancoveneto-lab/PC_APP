@@ -81,7 +81,11 @@ function setLogged(value) {
   sessionStorage.setItem(AUTH_KEY, value ? '1' : '0');
   login.style.display = value ? 'none' : 'flex';
   admin.style.display = value ? 'block' : 'none';
-  if (value && !window._adminMapInit) initAdminMap();
+  if (value && !window._adminMapInit) {
+    initAdminMap();
+  } else if (value && map) {
+    requestAnimationFrame(() => map.invalidateSize(true));
+  }
 }
 
 document.getElementById('loginBtn').onclick = () => {
@@ -314,6 +318,7 @@ function initAdminMap() {
   refreshAlerts();
   scheduleOsmLoad();
   map.on('moveend', scheduleOsmLoad);
+  requestAnimationFrame(() => map.invalidateSize(true));
   document.getElementById('clearDraftBtn').onclick = resetDraft;
 
   document.getElementById('saveBtn').onclick = async () => {
