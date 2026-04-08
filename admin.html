@@ -40,6 +40,22 @@
     .alert-desc { margin:6px 0 0; font-size:.82rem; color:#334155; }
     .btn-small { width:auto; padding:6px 10px; font-size:.78rem; border-radius:8px; }
     .empty { color:var(--muted); font-size:.82rem; border:1px dashed #cbd5e1; border-radius:10px; padding:10px; background:#f8fafc; }
+    @media (max-width: 960px) {
+      .layout { grid-template-columns: 1fr; min-height:auto; }
+      .panel { border-right:none; border-bottom:1px solid var(--border); max-height:none; }
+      #map { min-height:56vh; height:56vh; }
+      .topbar > * { flex:1 1 calc(50% - 10px); min-width:140px; }
+      .topbar a, .topbar button, .topbar .mode-switch { min-height:44px; }
+    }
+    @media (max-width: 640px) {
+      .card { width:min(96vw, 420px); padding:16px; }
+      .panel { padding:10px; }
+      .topbar { gap:8px; padding:10px; }
+      .topbar > * { flex:1 1 100%; }
+      .row { grid-template-columns:1fr; }
+      #map { min-height:50vh; height:50vh; }
+      input, textarea, select, button { padding:12px; font-size:16px; }
+    }
   </style>
 </head>
 <body>
@@ -97,6 +113,7 @@ const AUTH_KEY = 'closure_admin_logged';
 const STORAGE_KEY = 'closure_alerts_geojson_v1';
 const OVERPASS_ENDPOINT = 'https://overpass-api.de/api/interpreter';
 const TILE_CACHE_BUSTER = Date.now();
+const PICK_TOLERANCE_PX = 18;
 
 const login = document.getElementById('login');
 const admin = document.getElementById('admin');
@@ -114,6 +131,10 @@ function setLogged(value) {
   }
 }
 
+function forceLogoutOnExit() {
+  sessionStorage.removeItem(AUTH_KEY);
+}
+
 document.getElementById('loginBtn').onclick = () => {
   const u = document.getElementById('username').value.trim();
   const p = document.getElementById('password').value;
@@ -122,6 +143,11 @@ document.getElementById('loginBtn').onclick = () => {
 };
 
 document.getElementById('logoutBtn').onclick = () => setLogged(false);
+window.addEventListener('beforeunload', forceLogoutOnExit);
+window.addEventListener('pagehide', forceLogoutOnExit);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') forceLogoutOnExit();
+});
 setLogged(sessionStorage.getItem(AUTH_KEY) === '1');
 
 let map, draftLayer, alertsLayer, osmSourceLayer;
@@ -270,8 +296,63 @@ function osmFeatureStyle(feature) {
     color: isSelected ? '#16a34a' : hasGeometry ? '#2563eb' : '#94a3b8',
     fillColor: isSelected ? '#22c55e' : hasGeometry ? '#60a5fa' : '#cbd5e1',
     fillOpacity: isSelected ? 0.35 : hasGeometry ? 0.2 : 0.08,
-    weight: isSelected ? 4 : 2
+    weight: isSelected ? 6 : 4
   };
+}
+
+function distanceToSegmentSquared(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  if (dx === 0 && dy === 0) {
+    const ddx = px - x1;
+    const ddy = py - y1;
+    return ddx * ddx + ddy * ddy;
+  }
+  const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)));
+  const cx = x1 + t * dx;
+  const cy = y1 + t * dy;
+  const ddx = px - cx;
+  const ddy = py - cy;
+  return ddx * ddx + ddy * ddy;
+}
+
+function featureDistancePx(feature, clickPoint) {
+  const geom = feature?.geometry;
+  if (!geom || !map) return Number.POSITIVE_INFINITY;
+  const [px, py] = [clickPoint.x, clickPoint.y];
+  if (geom.type === 'Point') {
+    const p = map.latLngToContainerPoint([geom.coordinates[1], geom.coordinates[0]]);
+    return Math.hypot(px - p.x, py - p.y);
+  }
+  const lines = geom.type === 'Polygon' ? [geom.coordinates?.[0] || []]
+    : geom.type === 'LineString' ? [geom.coordinates || []]
+      : [];
+  let minDistanceSquared = Number.POSITIVE_INFINITY;
+  lines.forEach((line) => {
+    for (let i = 0; i < line.length - 1; i++) {
+      const a = map.latLngToContainerPoint([line[i][1], line[i][0]]);
+      const b = map.latLngToContainerPoint([line[i + 1][1], line[i + 1][0]]);
+      minDistanceSquared = Math.min(minDistanceSquared, distanceToSegmentSquared(px, py, a.x, a.y, b.x, b.y));
+    }
+  });
+  return Math.sqrt(minDistanceSquared);
+}
+
+function selectNearestFeatureByClick(latlng) {
+  if (!isEditingMode || !osmFeaturesCache.length) return;
+  const clickPoint = map.latLngToContainerPoint(latlng);
+  let nearestFeature = null;
+  let nearestDistance = Number.POSITIVE_INFINITY;
+  osmFeaturesCache.forEach((feature) => {
+    const distance = featureDistancePx(feature, clickPoint);
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearestFeature = feature;
+    }
+  });
+  if (nearestFeature && nearestDistance <= PICK_TOLERANCE_PX) {
+    selectOSMFeature(nearestFeature);
+  }
 }
 
 function renderOsmFeatures() {
@@ -395,7 +476,7 @@ function initAdminMap() {
   alertsLayer = L.layerGroup().addTo(map);
   osmSourceLayer = L.geoJSON([], {
     style: osmFeatureStyle,
-    pointToLayer: (feature, latlng) => L.circleMarker(latlng, { ...osmFeatureStyle(feature), radius: 6 }),
+    pointToLayer: (feature, latlng) => L.circleMarker(latlng, { ...osmFeatureStyle(feature), radius: 10 }),
     onEachFeature: (feature, layer) => {
       layer.on('click', () => selectOSMFeature(feature));
       const p = feature.properties || {};
@@ -403,11 +484,16 @@ function initAdminMap() {
       layer.bindTooltip(`OSM: ${name}`);
     }
   }).addTo(map);
+  map.on('click', (event) => selectNearestFeatureByClick(event.latlng));
   refreshAlerts();
   setMode(false);
   requestAnimationFrame(() => map.invalidateSize(true));
   document.getElementById('clearDraftBtn').onclick = resetDraft;
   document.getElementById('modeToggle').onchange = (e) => setMode(e.target.checked);
+  const publicMapLink = document.querySelector('.topbar a[href="./index.html"]');
+  if (publicMapLink) {
+    publicMapLink.addEventListener('click', forceLogoutOnExit);
+  }
 
   document.getElementById('saveBtn').onclick = async () => {
     const title = document.getElementById('title').value.trim();
