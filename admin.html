@@ -34,6 +34,8 @@
     .panel-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px; box-shadow:0 10px 20px rgba(15,23,42,.06); margin-bottom:12px; }
     .list { display:grid; gap:8px; margin-top:8px; }
     .alert-item { border:1px solid var(--border); border-radius:10px; padding:10px; background:#fff; }
+    .alert-item.alert-active { border-color:#fecaca; background:#fff1f2; }
+    .alert-item.alert-upcoming { border-color:#fed7aa; background:#fff7ed; }
     .alert-head { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
     .alert-title { margin:0; font-size:.95rem; font-weight:700; }
     .alert-meta { margin:4px 0 0; font-size:.78rem; color:var(--muted); }
@@ -92,6 +94,10 @@
         <div class="row">
           <div><label>Data inizio</label><input id="startDate" type="date" /></div>
           <div><label>Data fine</label><input id="endDate" type="date" /></div>
+        </div>
+        <div class="row">
+          <div><label>Ora inizio</label><input id="startTime" type="time" /></div>
+          <div><label>Ora fine</label><input id="endTime" type="time" /></div>
         </div>
         <div id="state" class="hint"></div>
       </div>
@@ -165,7 +171,36 @@ function getData() {
 }
 function saveData(fc) { localStorage.setItem(STORAGE_KEY, JSON.stringify(fc)); }
 
-function style() { return { color:'#b91c1c', fillColor:'#dc2626', weight:3, fillOpacity:.35 }; }
+function getAlertDateRange(properties = {}) {
+  const startDate = properties.startDate || '';
+  const endDate = properties.endDate || '';
+  const startTime = properties.startTime || '00:00';
+  const endTime = properties.endTime || '23:59';
+  const start = startDate ? new Date(`${startDate}T${startTime}`) : null;
+  const end = endDate ? new Date(`${endDate}T${endTime}`) : null;
+  return {
+    start: start && !Number.isNaN(start.getTime()) ? start : null,
+    end: end && !Number.isNaN(end.getTime()) ? end : null
+  };
+}
+
+function getAlertStatus(properties = {}, now = new Date()) {
+  const { start, end } = getAlertDateRange(properties);
+  if (end && end < now) return 'ended';
+  if (start && start > now) return 'upcoming';
+  return 'active';
+}
+
+function styleByStatus(status) {
+  if (status === 'upcoming') {
+    return { color:'#c2410c', fillColor:'#fb923c', weight:3, fillOpacity:.35 };
+  }
+  return { color:'#b91c1c', fillColor:'#dc2626', weight:3, fillOpacity:.35 };
+}
+
+function style() {
+  return styleByStatus('active');
+}
 
 function resetDraft() {
   draftGeometry = null;
@@ -213,20 +248,26 @@ function setMode(editingEnabled) {
 }
 
 function refreshAlerts() {
-  const features = getData().features || [];
+  const fc = getData();
+  const allFeatures = fc.features || [];
+  const now = new Date();
+  const features = allFeatures.filter((feature) => getAlertStatus(feature.properties || {}, now) !== 'ended');
+  if (features.length !== allFeatures.length) {
+    saveData({ ...fc, features });
+  }
   alertsLayer.clearLayers();
   L.geoJSON({ type:'FeatureCollection', features }, {
-    style,
-    pointToLayer: (_,latlng) => L.circleMarker(latlng, { ...style(), radius:8 }),
+    style: (feature) => styleByStatus(getAlertStatus(feature.properties || {}, now)),
+    pointToLayer: (feature,latlng) => L.circleMarker(latlng, { ...styleByStatus(getAlertStatus(feature.properties || {}, now)), radius:8 }),
     onEachFeature: (f,l) => {
       const p = f.properties || {};
-      l.bindPopup(`<strong>${p.title || 'Avviso'}</strong><br>${p.description || ''}<br><small>${p.startDate || '-'} → ${p.endDate || '-'}</small>`);
+      l.bindPopup(`<strong>${p.title || 'Avviso'}</strong><br>${p.description || ''}<br><small>${p.startDate || '-'} ${p.startTime || '--:--'} → ${p.endDate || '-'} ${p.endTime || '--:--'}</small>`);
     }
   }).addTo(alertsLayer);
-  renderAlertsList(features);
+  renderAlertsList(features, now);
 }
 
-function renderAlertsList(features) {
+function renderAlertsList(features, now = new Date()) {
   const list = document.getElementById('alertsList');
   if (!list) return;
   if (!features.length) {
@@ -236,12 +277,14 @@ function renderAlertsList(features) {
   list.innerHTML = features.map((feature, index) => {
     const p = feature.properties || {};
     const id = p.id || '';
-    return `<div class="alert-item">
+    const status = getAlertStatus(p, now);
+    const itemClass = status === 'upcoming' ? 'alert-upcoming' : 'alert-active';
+    return `<div class="alert-item ${itemClass}">
       <div class="alert-head">
         <p class="alert-title">${p.title || `Avviso #${index + 1}`}</p>
         <button class="btn-danger btn-small" data-alert-id="${id}" data-alert-index="${index}">Elimina</button>
       </div>
-      <p class="alert-meta">${p.startDate || '-'} → ${p.endDate || '-'}</p>
+      <p class="alert-meta">${p.startDate || '-'} ${p.startTime || '--:--'} → ${p.endDate || '-'} ${p.endTime || '--:--'}</p>
       <p class="alert-desc">${p.description || 'Nessuna descrizione.'}</p>
     </div>`;
   }).join('');
@@ -500,9 +543,11 @@ function initAdminMap() {
     const description = document.getElementById('description').value.trim();
     const startDate = document.getElementById('startDate').value;
     const endDate = document.getElementById('endDate').value;
+    const startTime = document.getElementById('startTime').value;
+    const endTime = document.getElementById('endTime').value;
     const geometry = geometryFromDraft();
 
-    if (!title || !description || !startDate || !endDate || !geometry) {
+    if (!title || !description || !startDate || !endDate || !startTime || !endTime || !geometry) {
       return alert('Compila tutti i campi e disegna una geometria valida.');
     }
 
@@ -510,7 +555,7 @@ function initAdminMap() {
     fc.features.push({
       type: 'Feature',
       geometry,
-      properties: { id: crypto.randomUUID(), title, description, startDate, endDate, updatedAt: new Date().toISOString() }
+      properties: { id: crypto.randomUUID(), title, description, startDate, endDate, startTime, endTime, updatedAt: new Date().toISOString() }
     });
     saveData(fc);
 
