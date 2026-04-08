@@ -10,9 +10,9 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
-    :root { --primary:#8d021f; --ok:#166534; --danger:#b91c1c; }
+    :root { --primary:#8d021f; --ok:#166534; --danger:#b91c1c; --card:#ffffff; --border:#e2e8f0; --muted:#64748b; }
     * { box-sizing: border-box; }
-    body { margin:0; font-family: Inter, Arial, sans-serif; color:#0f172a; }
+    body { margin:0; font-family: Inter, Arial, sans-serif; color:#0f172a; background:linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%); }
     #login, #admin { min-height:100vh; }
     #login { display:flex; align-items:center; justify-content:center; background:#f1f5f9; }
     .card { background:#fff; padding:20px; width:min(420px,92vw); border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.12); }
@@ -23,14 +23,23 @@
     .btn-primary { background:var(--primary); color:#fff; border-color:var(--primary); }
     .btn-danger { background:#fff1f2; border-color:#fecdd3; color:var(--danger); }
     .btn-ok { background:#ecfdf5; border-color:#bbf7d0; color:var(--ok); }
-    .topbar { display:flex; gap:10px; padding:10px; background:#fff; border-bottom:1px solid #e2e8f0; position:sticky; top:0; z-index:1000; }
+    .topbar { display:flex; flex-wrap:wrap; gap:10px; padding:12px; background:#fff; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:1000; box-shadow:0 8px 20px rgba(15,23,42,.06); }
     .layout { display:grid; grid-template-columns:360px 1fr; min-height:calc(100vh - 62px); }
-    .panel { padding:12px; background:#f8fafc; border-right:1px solid #e2e8f0; overflow:auto; }
+    .panel { padding:14px; background:transparent; border-right:1px solid var(--border); overflow:auto; }
     #map { min-height:calc(100vh - 62px); }
     .hint { font-size:.78rem; color:#475569; margin-top:6px; }
     .row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
     .mode-switch { display:flex; align-items:center; gap:8px; width:auto; white-space:nowrap; font-size:.9rem; padding:0 10px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; }
     .mode-switch input { width:auto; margin:0; }
+    .panel-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px; box-shadow:0 10px 20px rgba(15,23,42,.06); margin-bottom:12px; }
+    .list { display:grid; gap:8px; margin-top:8px; }
+    .alert-item { border:1px solid var(--border); border-radius:10px; padding:10px; background:#fff; }
+    .alert-head { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+    .alert-title { margin:0; font-size:.95rem; font-weight:700; }
+    .alert-meta { margin:4px 0 0; font-size:.78rem; color:var(--muted); }
+    .alert-desc { margin:6px 0 0; font-size:.82rem; color:#334155; }
+    .btn-small { width:auto; padding:6px 10px; font-size:.78rem; border-radius:8px; }
+    .empty { color:var(--muted); font-size:.82rem; border:1px dashed #cbd5e1; border-radius:10px; padding:10px; background:#f8fafc; }
   </style>
 </head>
 <body>
@@ -50,7 +59,7 @@
     <button class="btn-ok" id="saveBtn">Salva avviso</button>
     <button class="btn-danger" id="clearDraftBtn">Cancella geometria</button>
     <label class="mode-switch" title="Attiva/disattiva modalità editing con caricamento OSM">
-      <input type="checkbox" id="modeToggle" checked />
+      <input type="checkbox" id="modeToggle" />
       <span id="modeLabel">Modalità editing (OSM)</span>
     </label>
     <button id="logoutBtn">Logout</button>
@@ -58,18 +67,24 @@
   </div>
   <div class="layout">
     <div class="panel">
-      <h1>Nuovo avviso chiusura</h1>
-      <p class="hint">La geometria viene presa da OpenStreetMap: i dati dell'area visibile si aggiornano automaticamente mentre scorri la mappa. Clicca sulla mappa per selezionare o deselezionare più elementi OSM insieme.</p>
+      <div class="panel-card">
+        <h1>Nuovo avviso chiusura</h1>
+        <p class="hint">La geometria viene presa da OpenStreetMap: i dati dell'area visibile si aggiornano automaticamente mentre scorri la mappa. Clicca sulla mappa per selezionare o deselezionare più elementi OSM insieme.</p>
 
-      <label>Titolo</label><input id="title" placeholder="Es. Chiusura Via Roma" />
-      <label>Descrizione</label><textarea id="description" rows="4" placeholder="Dettagli lavori/evento..."></textarea>
-      <div class="row">
-        <div><label>Data inizio</label><input id="startDate" type="date" /></div>
-        <div><label>Data fine</label><input id="endDate" type="date" /></div>
+        <label>Titolo</label><input id="title" placeholder="Es. Chiusura Via Roma" />
+        <label>Descrizione</label><textarea id="description" rows="4" placeholder="Dettagli lavori/evento..."></textarea>
+        <div class="row">
+          <div><label>Data inizio</label><input id="startDate" type="date" /></div>
+          <div><label>Data fine</label><input id="endDate" type="date" /></div>
+        </div>
+        <div id="state" class="hint"></div>
       </div>
-      <div id="state" class="hint"></div>
-      <hr style="margin:14px 0;border:none;border-top:1px solid #e2e8f0;">
-      <button id="deleteAllBtn" class="btn-danger">Elimina tutti gli avvisi</button>
+      <div class="panel-card">
+        <h1>Gestione avvisi</h1>
+        <p class="hint">Qui puoi eliminare tutti gli avvisi o rimuoverli singolarmente.</p>
+        <button id="deleteAllBtn" class="btn-danger">Elimina tutti gli avvisi</button>
+        <div id="alertsList" class="list"></div>
+      </div>
     </div>
     <div id="map"></div>
   </div>
@@ -94,6 +109,7 @@ function setLogged(value) {
   if (value && !window._adminMapInit) {
     initAdminMap();
   } else if (value && map) {
+    setMode(false);
     requestAnimationFrame(() => map.invalidateSize(true));
   }
 }
@@ -171,8 +187,9 @@ function setMode(editingEnabled) {
 }
 
 function refreshAlerts() {
+  const features = getData().features || [];
   alertsLayer.clearLayers();
-  L.geoJSON(getData(), {
+  L.geoJSON({ type:'FeatureCollection', features }, {
     style,
     pointToLayer: (_,latlng) => L.circleMarker(latlng, { ...style(), radius:8 }),
     onEachFeature: (f,l) => {
@@ -180,6 +197,28 @@ function refreshAlerts() {
       l.bindPopup(`<strong>${p.title || 'Avviso'}</strong><br>${p.description || ''}<br><small>${p.startDate || '-'} → ${p.endDate || '-'}</small>`);
     }
   }).addTo(alertsLayer);
+  renderAlertsList(features);
+}
+
+function renderAlertsList(features) {
+  const list = document.getElementById('alertsList');
+  if (!list) return;
+  if (!features.length) {
+    list.innerHTML = '<div class="empty">Nessun avviso presente.</div>';
+    return;
+  }
+  list.innerHTML = features.map((feature, index) => {
+    const p = feature.properties || {};
+    const id = p.id || '';
+    return `<div class="alert-item">
+      <div class="alert-head">
+        <p class="alert-title">${p.title || `Avviso #${index + 1}`}</p>
+        <button class="btn-danger btn-small" data-alert-id="${id}" data-alert-index="${index}">Elimina</button>
+      </div>
+      <p class="alert-meta">${p.startDate || '-'} → ${p.endDate || '-'}</p>
+      <p class="alert-desc">${p.description || 'Nessuna descrizione.'}</p>
+    </div>`;
+  }).join('');
 }
 
 function geometryFromDraft() { return draftGeometry; }
@@ -365,7 +404,7 @@ function initAdminMap() {
     }
   }).addTo(map);
   refreshAlerts();
-  setMode(true);
+  setMode(false);
   requestAnimationFrame(() => map.invalidateSize(true));
   document.getElementById('clearDraftBtn').onclick = resetDraft;
   document.getElementById('modeToggle').onchange = (e) => setMode(e.target.checked);
@@ -407,6 +446,20 @@ function initAdminMap() {
   document.getElementById('deleteAllBtn').onclick = () => {
     if (!confirm('Eliminare tutti gli avvisi?')) return;
     saveData({ type:'FeatureCollection', features:[] });
+    refreshAlerts();
+  };
+
+  document.getElementById('alertsList').onclick = (event) => {
+    const button = event.target.closest('button[data-alert-id]');
+    if (!button) return;
+    const alertId = button.getAttribute('data-alert-id');
+    const alertIndex = Number(button.getAttribute('data-alert-index'));
+    if (!confirm('Eliminare questo avviso?')) return;
+    const fc = getData();
+    fc.features = (fc.features || []).filter((feature, index) => alertId
+      ? feature?.properties?.id !== alertId
+      : index !== alertIndex);
+    saveData(fc);
     refreshAlerts();
   };
 }
