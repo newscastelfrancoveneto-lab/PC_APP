@@ -3044,6 +3044,8 @@ setInterval(loadAllerta, 10 * 60 * 1000);  // Ogni 10min
 setInterval(checkAllertaUpdates, 10 * 1000); // Polling 1min
 updatePanelTop()
 
+setInterval(loadClosureAlerts, 5 * 60 * 1000);  // ricarica chiusure ogni 5 min
+
 initGlobalRefreshScheduler();
 
 if ('serviceWorker' in navigator) {
