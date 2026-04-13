@@ -1390,23 +1390,31 @@ function readLocalClosureAlerts() {
 }
 
 async function loadClosureAlerts() {
-  const localData = readLocalClosureAlerts();
-  if (localData) renderClosureAlerts(localData);
+    const localData = readLocalClosureAlerts();
+    if (localData) renderClosureAlerts(localData);
+    try {
+        const response = await apiFetch('api/closures', {
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store'
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
 
-  try {
-    const response = await apiFetch('/api/closures', {
-      headers: { 'Accept': 'application/json' },
-      cache: 'no-store'
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
-    if (data?.type === 'FeatureCollection') {
-      localStorage.setItem(CLOSURE_ALERT_STORAGE_KEY, JSON.stringify(data));
-      renderClosureAlerts(data);
+        // ✅ Gestisce sia array diretto che GeoJSON FeatureCollection
+        let fc;
+        if (Array.isArray(data)) {
+            fc = { type: 'FeatureCollection', features: data };
+        } else if (data?.type === 'FeatureCollection') {
+            fc = data;
+        } else {
+            return; // formato inatteso
+        }
+
+        localStorage.setItem(CLOSUREALERTSTORAGEKEY, JSON.stringify(fc));
+        renderClosureAlerts(fc);
+    } catch (err) {
+        console.info('Endpoint apiclosures non disponibile, uso dati locali.', err);
     }
-  } catch (err) {
-    console.info('Endpoint /api/closures non disponibile, uso dati locali.', err);
-  }
 }
 
 function toggleClosureAlerts(visible) {
