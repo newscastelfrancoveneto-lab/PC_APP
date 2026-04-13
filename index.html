@@ -1393,7 +1393,7 @@ async function loadClosureAlerts() {
     const localData = readLocalClosureAlerts();
     if (localData) renderClosureAlerts(localData);
     try {
-        const response = await apiFetch('api/closures', {
+        const response = await apiFetch('/api/closures', {
             headers: { 'Accept': 'application/json' },
             cache: 'no-store'
         });
