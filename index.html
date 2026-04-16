@@ -17,16 +17,30 @@
 
   <style>
 
+	  .allerta-note-box {
+		  margin-top: 4px;
+		  padding: 14px;
+		  background: #f8fafc;
+		  border: 1px solid #e2e8f0;
+		  border-radius: 14px;
+		}
+		
+		.allerta-note-box p {
+		  font-size: 0.8rem !important;
+		  color: var(--text-muted) !important;
+		  line-height: 1.55 !important;
+		}
+
 	  .allerta-img-btn {
-  display: block;
-  width: 100%;
-  margin-top: 14px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  cursor: zoom-in;
-  text-align: left;
-}
+		  display: block;
+		  width: 100%;
+		  margin-top: 14px;
+		  padding: 0;
+		  background: transparent;
+		  border: none;
+		  cursor: zoom-in;
+		  text-align: left;
+		}
 
 .allerta-expandable-img {
   width: 100%;
@@ -746,18 +760,18 @@
       </p>
 
       <button
-		  type="button"
-		  class="allerta-img-btn"
-		  onclick="openImageLightbox(this)"
-		  aria-label="Apri infografica delle allerte a schermo intero"
-		>
-		  <img
-		    src=".IMG20260416132351139.jpg"
-		    alt="Infografica con i colori delle allerte meteo-idro"
-		    class="allerta-expandable-img"
-		  >
-		  <span class="allerta-img-hint">Tocca per ingrandire</span>
-		</button>
+        type="button"
+        class="allerta-img-btn"
+        onclick="openImageLightbox(this)"
+        aria-label="Apri infografica delle allerte a schermo intero"
+      >
+        <img
+          src="./IMG20260416132351139.jpg"
+          alt="Infografica con i colori delle allerte meteo-idro"
+          class="allerta-expandable-img"
+        >
+        <span class="allerta-img-hint">Tocca per ingrandire</span>
+      </button>
 
       <p style="margin-top:12px;">
         Approfondimento ufficiale:
@@ -799,17 +813,20 @@
     </div>
 
     <div class="allerta-section-title">Nota</div>
-	<div class="allerta-section-body allerta-note-box">
-	  <p>
-	    Le indicazioni di comportamento presenti in questa sezione sono ispirate ai materiali ufficiali della campagna nazionale <strong>Io non rischio</strong> e hanno finalità esclusivamente informative.
-	  </p>
-	  <p>
-	    In caso di emergenza fai sempre riferimento alle comunicazioni ufficiali di Protezione Civile, Regione, Comune e autorità competenti.
-	  </p>
-	  <p>
-	    Fonte: <a href="https://www.iononrischio.gov.it/it/preparati/alluvione/cosa-fare" target="_blank" rel="noopener noreferrer">Io non rischio - Alluvione</a>
-	  </p>
-	</div>
+    <div class="allerta-section-body allerta-note-box">
+      <p>
+        Le indicazioni di comportamento presenti in questa sezione sono ispirate ai materiali ufficiali della campagna nazionale <strong>Io non rischio</strong> e hanno finalità esclusivamente informative.
+      </p>
+      <p>
+        In caso di emergenza fai sempre riferimento alle comunicazioni ufficiali di Protezione Civile, Regione, Comune e autorità competenti.
+      </p>
+      <p>
+        Fonte:
+        <a href="https://www.iononrischio.gov.it/it/preparati/alluvione/cosa-fare" target="_blank" rel="noopener noreferrer">
+          Io non rischio - Alluvione
+        </a>
+      </p>
+    </div>
   </div>
 </div>
 
@@ -3476,7 +3493,7 @@ setInterval(loadAllerta, 10 * 60 * 1000);
 setInterval(checkAllertaUpdates, 60 * 1000);
 
 </script>
-</body>
+
 <div
   id="image-lightbox"
   class="image-lightbox-overlay"
@@ -3498,4 +3515,6 @@ setInterval(checkAllertaUpdates, 60 * 1000);
     alt=""
   >
 </div>
+	
+</body>
 </html>
