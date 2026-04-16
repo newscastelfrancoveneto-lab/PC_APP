@@ -17,6 +17,108 @@
 
   <style>
 
+	  .allerta-img-btn {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: zoom-in;
+  text-align: left;
+}
+
+.allerta-expandable-img {
+  width: 100%;
+  display: block;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.allerta-img-btn:hover .allerta-expandable-img {
+  transform: scale(1.01);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.10);
+}
+
+.allerta-img-hint {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.image-lightbox-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.image-lightbox-overlay.open {
+  display: flex;
+}
+
+.image-lightbox-img {
+  max-width: min(1100px, 100%);
+  max-height: calc(100vh - 48px);
+  width: auto;
+  height: auto;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+  animation: popIn 0.22s ease;
+}
+
+.image-lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.14);
+  color: #fff;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.image-lightbox-close:hover {
+  background: rgba(255,255,255,0.24);
+  transform: scale(1.05);
+}
+
+@media (max-width: 640px) {
+  .image-lightbox-overlay {
+    padding: 14px;
+  }
+
+  .image-lightbox-img {
+    max-height: calc(100vh - 28px);
+    border-radius: 14px;
+  }
+
+  .image-lightbox-close {
+    top: 10px;
+    right: 10px;
+  }
+}
+
 
 	  .btn-clear-notifs {
 		  padding: 8px 14px;
@@ -643,11 +745,19 @@
         Per il rischio temporali il livello massimo previsto è l’arancione.
       </p>
 
-      <img
-        src="./IMG_20260416_132351_139.jpg"
-        alt="Infografica con i colori delle allerte meteo-idro"
-        style="width:100%; display:block; margin-top:12px; border-radius:12px; border:1px solid #e2e8f0; background:#fff;"
-      />
+      <button
+		  type="button"
+		  class="allerta-img-btn"
+		  onclick="openImageLightbox(this)"
+		  aria-label="Apri infografica delle allerte a schermo intero"
+		>
+		  <img
+		    src=".IMG20260416132351139.jpg"
+		    alt="Infografica con i colori delle allerte meteo-idro"
+		    class="allerta-expandable-img"
+		  >
+		  <span class="allerta-img-hint">Tocca per ingrandire</span>
+		</button>
 
       <p style="margin-top:12px;">
         Approfondimento ufficiale:
@@ -932,6 +1042,24 @@ function setStationRefreshState(stationId, updates) {
     ...updates
   };
 }
+
+function openImageLightbox(triggerEl) {
+  const img = triggerEl.querySelector('img');
+  if (!img) return;
+
+  const lightbox = document.getElementById('image-lightbox');
+  const lightboxImg = document.getElementById('image-lightbox-img');
+
+  lightboxImg.src = img.src;
+  lightboxImg.alt = img.alt || 'Immagine ingrandita';
+  lightbox.classList.add('open');
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.getElementById('image-lightbox')?.classList.remove('open');
+  }
+});
 
 function updatePanelTop() {
   const bar   = document.getElementById('allerta-bar');
@@ -3349,4 +3477,25 @@ setInterval(checkAllertaUpdates, 60 * 1000);
 
 </script>
 </body>
+<div
+  id="image-lightbox"
+  class="image-lightbox-overlay"
+  onclick="if(event.target===this)this.classList.remove('open')"
+>
+  <button
+    type="button"
+    class="image-lightbox-close"
+    aria-label="Chiudi immagine ingrandita"
+    onclick="document.getElementById('image-lightbox').classList.remove('open')"
+  >
+    ×
+  </button>
+
+  <img
+    id="image-lightbox-img"
+    class="image-lightbox-img"
+    src=""
+    alt=""
+  >
+</div>
 </html>
