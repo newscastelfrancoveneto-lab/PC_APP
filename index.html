@@ -17,6 +17,181 @@
 
   <style>
 
+	  .top-left-tools {
+	    position: fixed;
+	    top: 58px;
+	    left: 16px;
+	    z-index: 600;
+	    display: flex;
+	    flex-direction: column;
+	    gap: 12px;
+	}
+	
+	.contacts-menu {
+	    position: absolute;
+	    top: 0;
+	    left: 56px;
+	    width: min(340px, calc(100vw - 88px));
+	    background: rgba(255, 255, 255, 0.96);
+	    backdrop-filter: blur(10px);
+	    -webkit-backdrop-filter: blur(10px);
+	    border: 1px solid rgba(255,255,255,0.55);
+	    border-radius: var(--radius-lg);
+	    box-shadow: var(--shadow-float);
+	    padding: 14px;
+	    opacity: 0;
+	    visibility: hidden;
+	    transform: translateX(-6px) scale(0.97);
+	    transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+	    transform-origin: top left;
+	    pointer-events: none;
+	    max-height: calc(100vh - 90px);
+	    overflow-y: auto;
+	}
+	
+	.contacts-menu.open {
+	    opacity: 1;
+	    visibility: visible;
+	    transform: translateX(0) scale(1);
+	    pointer-events: auto;
+	}
+	
+	.contacts-menu-header {
+	    display: flex;
+	    align-items: center;
+	    justify-content: space-between;
+	    gap: 10px;
+	    margin-bottom: 10px;
+	    padding-bottom: 10px;
+	    border-bottom: 1px solid #e2e8f0;
+	}
+	
+	.contacts-menu-title {
+	    font-size: 0.92rem;
+	    font-weight: 800;
+	    color: var(--text-main);
+	}
+	
+	.contacts-menu-subtitle {
+	    font-size: 0.74rem;
+	    color: var(--text-muted);
+	    margin-top: 2px;
+	}
+	
+	.contacts-close-btn {
+	    width: 36px;
+	    height: 36px;
+	    border-radius: 50%;
+	    border: none;
+	    background: #f1f5f9;
+	    color: var(--text-muted);
+	    display: flex;
+	    align-items: center;
+	    justify-content: center;
+	    cursor: pointer;
+	    flex-shrink: 0;
+	    transition: background .2s, color .2s, transform .2s;
+	}
+	
+	.contacts-close-btn:hover {
+	    background: #e2e8f0;
+	    color: var(--text-main);
+	    transform: scale(1.04);
+	}
+	
+	.contacts-section-title {
+	    font-size: 0.72rem;
+	    font-weight: 800;
+	    text-transform: uppercase;
+	    letter-spacing: .08em;
+	    color: var(--primary);
+	    margin: 14px 0 8px;
+	}
+	
+	.contact-card {
+	    display: flex;
+	    align-items: center;
+	    justify-content: space-between;
+	    gap: 10px;
+	    background: #f8fafc;
+	    border: 1px solid #e2e8f0;
+	    border-radius: 14px;
+	    padding: 11px 12px;
+	    margin-bottom: 8px;
+	}
+	
+	.contact-card-main {
+	    min-width: 0;
+	    flex: 1;
+	}
+	
+	.contact-name {
+	    font-size: 0.84rem;
+	    font-weight: 700;
+	    color: var(--text-main);
+	    line-height: 1.25;
+	}
+	
+	.contact-note {
+	    font-size: 0.72rem;
+	    color: var(--text-muted);
+	    margin-top: 3px;
+	    line-height: 1.35;
+	}
+	
+	.contact-number {
+	    font-size: 0.9rem;
+	    font-weight: 800;
+	    color: var(--primary-dark);
+	    margin-top: 4px;
+	}
+	
+	.contact-call-btn {
+	    width: 42px;
+	    height: 42px;
+	    min-width: 42px;
+	    border-radius: 50%;
+	    border: none;
+	    background: var(--primary);
+	    color: #fff;
+	    display: flex;
+	    align-items: center;
+	    justify-content: center;
+	    text-decoration: none;
+	    box-shadow: 0 4px 12px rgba(141, 2, 31, 0.2);
+	    transition: transform .2s, background .2s;
+	}
+	
+	.contact-call-btn:hover {
+	    background: var(--primary-dark);
+	    transform: scale(1.05);
+	}
+	
+	.contacts-help-note {
+	    margin-top: 12px;
+	    font-size: 0.72rem;
+	    color: var(--text-muted);
+	    line-height: 1.45;
+	    padding: 10px 12px;
+	    background: #f8fafc;
+	    border: 1px solid #e2e8f0;
+	    border-radius: 12px;
+	}
+	
+	@media (max-width: 640px) {
+	    .top-left-tools {
+	        top: 54px;
+	        left: 12px;
+	    }
+	
+	    .contacts-menu {
+	        left: 0;
+	        top: 56px;
+	        width: min(360px, calc(100vw - 24px));
+	        max-height: calc(100vh - 130px);
+	    }
+	}
+
 	  .allerta-note-box {
 		  margin-top: 4px;
 		  padding: 14px;
@@ -871,6 +1046,107 @@
 
   <div id="map"></div>
 
+	<div class="top-left-tools">
+    <button id="contacts-menu-toggle" class="fab-btn" title="Contatti di emergenza" aria-label="Apri contatti di emergenza" aria-expanded="false">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.33 1.78.62 2.62a2 2 0 0 1-.45 2.11L8 9.91a16 16 0 0 0 6.09 6.09l1.46-1.28a2 2 0 0 1 2.11-.45c.84.29 1.72.5 2.62.62A2 2 0 0 1 22 16.92z"></path>
+        </svg>
+    </button>
+
+    <div id="contacts-menu" class="contacts-menu" role="dialog" aria-label="Contatti di emergenza">
+        <div class="contacts-menu-header">
+            <div>
+                <div class="contacts-menu-title">Contatti utili</div>
+                <div class="contacts-menu-subtitle">Tocca l'icona telefono per chiamare</div>
+            </div>
+            <button type="button" class="contacts-close-btn" id="contacts-menu-close" aria-label="Chiudi contatti">✕</button>
+        </div>
+
+        <div class="contacts-section-title">Emergenze nazionali</div>
+
+        <div class="contact-card">
+            <div class="contact-card-main">
+                <div class="contact-name">Carabinieri</div>
+                <div class="contact-number">112</div>
+            </div>
+            <a class="contact-call-btn" href="tel:112" aria-label="Chiama Carabinieri 112">📞</a>
+        </div>
+
+        <div class="contact-card">
+            <div class="contact-card-main">
+                <div class="contact-name">Polizia di Stato</div>
+                <div class="contact-number">113</div>
+            </div>
+            <a class="contact-call-btn" href="tel:113" aria-label="Chiama Polizia di Stato 113">📞</a>
+        </div>
+
+        <div class="contact-card">
+            <div class="contact-card-main">
+                <div class="contact-name">Vigili del Fuoco</div>
+                <div class="contact-number">115</div>
+            </div>
+            <a class="contact-call-btn" href="tel:115" aria-label="Chiama Vigili del Fuoco 115">📞</a>
+        </div>
+
+        <div class="contact-card">
+            <div class="contact-card-main">
+                <div class="contact-name">Guardia di Finanza</div>
+                <div class="contact-number">117</div>
+            </div>
+            <a class="contact-call-btn" href="tel:117" aria-label="Chiama Guardia di Finanza 117">📞</a>
+        </div>
+
+        <div class="contacts-section-title">Contatti locali</div>
+
+        <div class="contact-card">
+            <div class="contact-card-main">
+                <div class="contact-name">Polizia locale</div>
+                <div class="contact-number">0423 735 536</div>
+            </div>
+            <a class="contact-call-btn" href="tel:+390423735536" aria-label="Chiama Polizia locale">📞</a>
+        </div>
+
+        <div class="contact-card">
+            <div class="contact-card-main">
+                <div class="contact-name">Protezione civile locale</div>
+                <div class="contact-note">In emergenza</div>
+                <div class="contact-number">329 299 3682</div>
+            </div>
+            <a class="contact-call-btn" href="tel:+393292993682" aria-label="Chiama Protezione civile locale in emergenza">📞</a>
+        </div>
+
+        <div class="contact-card">
+            <div class="contact-card-main">
+                <div class="contact-name">Protezione civile locale</div>
+                <div class="contact-note">In orario d'ufficio</div>
+                <div class="contact-number">0423 735 727</div>
+            </div>
+            <a class="contact-call-btn" href="tel:+390423735727" aria-label="Chiama Protezione civile locale in orario d'ufficio">📞</a>
+        </div>
+
+        <div class="contact-card">
+            <div class="contact-card-main">
+                <div class="contact-name">Protezione civile locale</div>
+                <div class="contact-note">Fuori orario d'ufficio</div>
+                <div class="contact-number">348 355 1489</div>
+            </div>
+            <a class="contact-call-btn" href="tel:+393483551489" aria-label="Chiama Protezione civile locale fuori orario d'ufficio">📞</a>
+        </div>
+
+        <div class="contact-card">
+            <div class="contact-card-main">
+                <div class="contact-name">Protezione civile regionale</div>
+                <div class="contact-number">800 99 00 09</div>
+            </div>
+            <a class="contact-call-btn" href="tel:800990009" aria-label="Chiama Protezione civile regionale">📞</a>
+        </div>
+
+        <div class="contacts-help-note">
+            Usa i numeri locali per segnalazioni e coordinamento sul territorio. Per emergenze immediate fai riferimento ai numeri nazionali.
+        </div>
+    </div>
+</div>
+
   <div class="fab-container">
     
 	<button onclick="toggleNotificationsMenu()" class="fab-btn" title="Notifiche">
@@ -1504,6 +1780,40 @@ async function loadOSMData(forceRefresh = false) {
         console.error('Errore caricamento dati OSM:', e);
     }
 }
+
+	function toggleContactsMenu(forceOpen = null) {
+  const menu = document.getElementById('contacts-menu');
+  const btn = document.getElementById('contacts-menu-toggle');
+  if (!menu || !btn) return;
+
+  const shouldOpen = forceOpen === null
+    ? !menu.classList.contains('open')
+    : !!forceOpen;
+
+  menu.classList.toggle('open', shouldOpen);
+  btn.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+}
+
+	document.getElementById('contacts-menu-toggle')?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  toggleContactsMenu();
+});
+
+document.getElementById('contacts-menu-close')?.addEventListener('click', () => {
+  toggleContactsMenu(false);
+});
+
+document.addEventListener('click', (event) => {
+  const menu = document.getElementById('contacts-menu');
+  const btn = document.getElementById('contacts-menu-toggle');
+  if (!menu || !btn) return;
+  if (menu.contains(event.target) || btn.contains(event.target)) return;
+  toggleContactsMenu(false);
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') toggleContactsMenu(false);
+});
 
 let osmRefreshBtnRef = null;
 let osmRefreshIconRef = null;
