@@ -407,8 +407,7 @@
 
 <script>
 // ---------- LOGICA JAVASCRIPT ORIGINALE (Invariata) ----------
-const ADMIN_USER = 'admin';
-const ADMIN_PASS = 'admin123';
+const AUTH_TOKEN_KEY = 'closure_admin_token' 
 const AUTH_KEY = 'closure_admin_logged';
 const STORAGE_KEY = 'closure_alerts_geojson_v1';
 const OVERPASS_ENDPOINTS = [
@@ -423,6 +422,51 @@ const login = document.getElementById('login');
 const admin = document.getElementById('admin');
 const loginMsg = document.getElementById('loginMsg');
 
+function getToken() { return sessionStorage.getItem(AUTH_TOKEN_KEY) }
+function setToken(t) { if (t) sessionStorage.setItem(AUTH_TOKEN_KEY, t); else sessionStorage.removeItem(AUTH_TOKEN_KEY) }
+
+// Login: chiama il server invece di confrontare localmente
+document.getElementById('loginBtn').onclick = async () => {
+    const u = document.getElementById('username').value.trim()
+    const p = document.getElementById('password').value
+    try {
+        const res = await fetch('https://parthenocarpically-presymphonic-alesia.ngrok-free.dev/api/admin/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+            body: JSON.stringify({ username: u, password: p })
+        })
+        if (res.ok) {
+            const data = await res.json()
+            setToken(data.token)
+            setLogged(true)
+        } else {
+            loginMsg.textContent = 'Credenziali non valide.'
+        }
+    } catch (e) {
+        loginMsg.textContent = 'Errore di connessione al server.'
+    }
+}
+
+// Logout: notifica il server
+document.getElementById('logoutBtn').onclick = async () => {
+    const token = getToken()
+    if (token) {
+        await fetch('https://parthenocarpically-presymphonic-alesia.ngrok-free.dev/api/admin/logout', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' }
+        }).catch(() => {})
+    }
+    setToken(null)
+    setLogged(false)
+}
+
+// Al posto di forceLogoutOnExit (sessionStorage si azzera da solo)
+// Basta rimuovere il token
+function forceLogoutOnExit() { setToken(null) }
+
+// Controlla se c'è già un token valido all'avvio
+setLogged(!!getToken())
+
 function setLogged(value) {
   sessionStorage.setItem(AUTH_KEY, value ? '1' : '0');
   login.style.display = value ? 'none' : 'flex';
@@ -433,10 +477,6 @@ function setLogged(value) {
     setMode(false);
     requestAnimationFrame(() => map.invalidateSize(true));
   }
-}
-
-function forceLogoutOnExit() {
-  sessionStorage.removeItem(AUTH_KEY);
 }
 
 document.getElementById('loginBtn').onclick = () => {
