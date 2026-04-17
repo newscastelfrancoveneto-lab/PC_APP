@@ -3277,7 +3277,6 @@ document.getElementById('panel-body').innerHTML =
     <div class="stat-card"><div class="val">${total48h.toFixed(2)}</div><div class="lbl">Totale 48h (${unit})</div></div>
   </div>
   <small id="precip-acc-status" style="display:block;margin:10px 4px 0;color:#64748b;font-weight:600;">Calcolo accumulo 24h in background…</small>
-  ${stn.id !== 292 ? `<small id="precip-drying-note" style="display:block;margin:4px 4px 0;color:#64748b;">${hasDryingSupport ? `Correzione "asciugatura" attiva con ${supportSummary}.` : 'Correzione "asciugatura" non disponibile: sensori di temperatura/radiazione non trovati per questa stazione.'}</small>` : ''}
   <div class="chart-wrap"><canvas id="sensorChart"></canvas></div>
   <table class="data-table">
     <thead><tr>
