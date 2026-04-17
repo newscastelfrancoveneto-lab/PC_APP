@@ -1856,15 +1856,27 @@ async function loadOSMData(forceRefresh = false) {
 
 // Mantieni solo pcIcon e pcLayerGroup vuoto
 const pcIcon = L.divIcon({
-  html: `<div class="stn-marker" style="width:26px;height:26px;background:#ff6600">
+  html: `<div style="
+           width:36px;
+           height:36px;
+           background:#ff6600;
+           border-radius:50%;
+           border:2px solid #fff;
+           box-shadow:0 2px 8px rgba(0,0,0,0.4);
+           display:flex;
+           align-items:center;
+           justify-content:center;
+           cursor:pointer;">
            <img src="https://upload.wikimedia.org/wikipedia/commons/7/70/Logo_Internazionale_Protezione_Civile.png"
-                alt="PC" style="width:18px;height:18px;">
+                alt="PC"
+                style="width:22px;height:22px;display:block;">
          </div>`,
-  iconSize: [26, 26],
-  className: '',
-  iconAnchor: [13, 13]
+  iconSize: [36, 36],
+  className: '',   // ← stringa vuota: nessuna classe Leaflet di default
+  iconAnchor: [18, 18]
 });
 
+	
 const pcLayerGroup = L.layerGroup().addTo(map); // vuoto, riempito da OSM
 
 	
