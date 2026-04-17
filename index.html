@@ -17,6 +17,14 @@
 
   <style>
 
+	.contacts-menu {
+	  z-index: 101;
+	}
+	.contacts-menu.open {
+	  z-index: 101;
+	}
+	  
+
 	  .top-left-tools {
 	    position: fixed;
 	    top: 58px;
@@ -1781,17 +1789,28 @@ async function loadOSMData(forceRefresh = false) {
     }
 }
 
-	function toggleContactsMenu(forceOpen = null) {
+function toggleContactsMenu(forceOpen = null) {
   const menu = document.getElementById('contacts-menu');
   const btn = document.getElementById('contacts-menu-toggle');
   if (!menu || !btn) return;
 
-  const shouldOpen = forceOpen === null
-    ? !menu.classList.contains('open')
-    : !!forceOpen;
-
+  const shouldOpen = forceOpen !== null ? !!forceOpen : !menu.classList.contains('open');
   menu.classList.toggle('open', shouldOpen);
   btn.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+
+  // Abbassa z-index pulsanti info e notifiche
+  const fabContainer = document.querySelector('.fab-container');
+  const topLeftTools = document.querySelector('.top-left-tools');
+  const sidePanel = document.querySelector('.side-panel');  // Per notifiche se side-panel
+  if (shouldOpen) {
+    if (fabContainer) fabContainer.style.zIndex = '99';
+    if (topLeftTools) topLeftTools.style.zIndex = '99';
+    if (sidePanel) sidePanel.style.zIndex = '99';
+  } else {
+    if (fabContainer) fabContainer.style.zIndex = '';  // Ripristina originale
+    if (topLeftTools) topLeftTools.style.zIndex = '';
+    if (sidePanel) sidePanel.style.zIndex = '10000';
+  }
 }
 
 	document.getElementById('contacts-menu-toggle')?.addEventListener('click', (e) => {
