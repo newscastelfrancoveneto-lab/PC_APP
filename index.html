@@ -3268,10 +3268,10 @@ const supportSummary = [
   const lastStep = bars.at(-1) ?? 0;
   const total48h = bars.reduce((sum, v) => sum + v, 0);
 
-  document.getElementById('panel-body').innerHTML =
+document.getElementById('panel-body').innerHTML =
   `<div class="stat-row">
     <div class="stat-card"><div class="val">${lastStep.toFixed(2)}</div><div class="lbl">Ultimo step (${unit})</div></div>
-    <div class="stat-card"><div class="val" id="precip-acc-last">—</div><div class="lbl">Accumulo 24h (${unit})</div></div>
+    ${stn.id !== 102 ? `<div class="stat-card"><div class="val" id="precip-acc-last">—</div><div class="lbl">Accumulo 24h (${unit})</div></div>` : ''}
     ${stn.id !== 292 ? `<div class="stat-card"><div class="val" id="precip-acc-drying">—</div><div class="lbl">Accumulo 24h corretto (${unit})</div></div>` : ''}
     <div class="stat-card"><div class="val" id="precip-acc-peak">—</div><div class="lbl">Picco 24h (${unit})</div></div>
     <div class="stat-card"><div class="val">${total48h.toFixed(2)}</div><div class="lbl">Totale 48h (${unit})</div></div>
@@ -3283,7 +3283,7 @@ const supportSummary = [
     <thead><tr>
       <th>Data / Ora</th>
       <th>Precipitazione (${unit})</th>
-      <th>Accumulo 24h (${unit})</th>
+      ${stn.id !== 102 ? `<th>Accumulo 24h (${unit})</th>` : ''}
       ${stn.id !== 292 ? `<th>Accumulo 24h corretto (${unit})</th>` : ''}
     </tr></thead>
     <tbody id="tbl-body"></tbody>
@@ -3294,7 +3294,7 @@ rows.slice().reverse().forEach((r, i, src) => {
   const reverseIdx = src.length - 1 - i;
   const tr = document.createElement('tr');
   if (i === 0) tr.classList.add('latest');
-  tr.innerHTML = `<td>${r.label}</td><td><strong>${bars[reverseIdx].toFixed(2)}</strong></td><td data-acc-idx="${reverseIdx}">—</td>${stn.id !== 292 ? `<td data-drying-idx="${reverseIdx}">—</td>` : ''}`;
+  tr.innerHTML = `<td>${r.label}</td><td><strong>${bars[reverseIdx].toFixed(2)}</strong></td>${stn.id !== 102 ? `<td data-acc-idx="${reverseIdx}">—</td>` : ''}${stn.id !== 292 ? `<td data-drying-idx="${reverseIdx}">—</td>` : ''}`;
   tbody.appendChild(tr);
 });
 
