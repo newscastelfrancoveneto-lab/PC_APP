@@ -175,22 +175,47 @@ async function serverLogout(){
   } catch {}
 }
 function forceLogoutOnExit(){ setToken(null); }
-document.getElementById('loginBtn').onclick = async () => {
-  const u = document.getElementById('username').value.trim();
-  const p = document.getElementById('password').value;
-  loginMsg.textContent = '';
+document.getElementById("loginBtn").onclick = async () => {
+  const u = document.getElementById("username").value.trim();
+  const p = document.getElementById("password").value;
+  loginMsg.textContent = "";
+
   try {
     const response = await fetch(`${SERVER_URL}/api/admin/login`, {
-      method:'POST',
-      headers: authHeaders({ 'Content-Type':'application/json', 'ngrok-skip-browser-warning': 'true'}),
-      body: JSON.stringify({ username:u, password:p })
+      method: "POST",
+      headers: authHeaders({
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true"
+      }),
+      body: JSON.stringify({ username: u, password: p })
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    let detail = "";
+    try {
+      const errorPayload = await response.clone().json();
+      detail = errorPayload?.detail || "";
+    } catch {
+      detail = "";
+    }
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        loginMsg.textContent = detail || "Credenziali non valide.";
+      } else if (response.status === 429) {
+        loginMsg.textContent = detail || "Troppi tentativi di accesso. Riprova tra qualche minuto.";
+      } else if (response.status >= 500) {
+        loginMsg.textContent = detail || "Errore del server. Controlla il Raspberry.";
+      } else {
+        loginMsg.textContent = detail || `Errore di accesso (${response.status}).`;
+      }
+      return;
+    }
+
     const payload = await response.json();
     setToken(payload.token);
     setLogged(true);
-  } catch {
-    loginMsg.textContent = 'Credenziali non valide o server non raggiungibile.';
+  } catch (err) {
+    loginMsg.textContent = "Server non raggiungibile o connessione bloccata.";
   }
 };
 document.getElementById('logoutBtn').onclick = async () => { await serverLogout(); setToken(null); setLogged(false); };
