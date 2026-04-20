@@ -7,7 +7,6 @@ self.addEventListener('push', event => {
     body: data.body || '',
     tag: data.tag || 'arpav',
     icon: '/PC_APP/icon-192.png', // usa la tua icona PWA
-    badge: 'badge.png',           // opzionale: metti il path corretto o rimuovi
     vibrate: [200, 100, 200],
     data: { url: data.url || '/PC_APP/' }
   };
