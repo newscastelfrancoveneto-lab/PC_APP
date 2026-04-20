@@ -182,7 +182,7 @@ document.getElementById('loginBtn').onclick = async () => {
   try {
     const response = await fetch(`${SERVER_URL}/api/admin/login`, {
       method:'POST',
-      headers: authHeaders({ 'Content-Type':'application/json' }),
+      headers: authHeaders({ 'Content-Type':'application/json', 'ngrok-skip-browser-warning': 'true'}),
       body: JSON.stringify({ username:u, password:p })
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
