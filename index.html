@@ -2898,32 +2898,26 @@ var ensureStationBoundaryWaiting = function(stationId, latestTs) {
 };
 
 async function loadStation(stn, options = false) {
-  const opts = typeof options === 'boolean' ? { silent: options } : (options || {});
+  const opts = typeof options === 'boolean' ? { silent: options } : options;
   const silent = !!opts.silent;
 
-if (!opts.background) {
-  currentId = stn.id;
-  currentStnRef = stn;
-  currentTabIndex = 0;
-  setActiveMarker(stn.id);
-  document.getElementById('panel-title').textContent = stn.name;
-  document.getElementById('panel-subtitle').textContent = stn.subtitle || `Staz. ${stn.id}`;
-  showBadge(true);
-  if (!silent) document.getElementById('sensor-tabs').style.display = 'none';
-  document.getElementById('panel-body').innerHTML =
-    `<div class="loading"><div class="spinner"></div>Recupero dati ARPAV...</div>`;
-  if (activeChart) activeChart.destroy(), activeChart = null;
-}
-
-  if (!silent) {
-    document.getElementById('sensor-tabs').style.display = 'none';
-    document.getElementById('panel-body').innerHTML =
-      '<div class="loading"><div class="spinner"></div>Recupero dati ARPAV...</div>';
+  if (!opts.background) {
+    currentId = stn.id;
+    currentStnRef = stn;
+    currentTabIndex = 0;
+    setActiveMarker(stn.id);
+    document.getElementById('panel-title').textContent = stn.name;
+    document.getElementById('panel-subtitle').textContent = stn.subtitle || `Staz. ${stn.id}`;
+    showBadge(true);
+    if (!silent) {
+      document.getElementById('sensor-tabs').style.display = 'none';
+      document.getElementById('panel-body').innerHTML = `<div class="loading"><div class="spinner"></div>Recupero dati ARPAV...</div>`;
+    }
     if (activeChart) { activeChart.destroy(); activeChart = null; }
   }
 
   try {
-    const xmlUrl = stn.xmlUrl ?? XML_URL;
+    const xmlUrl = stn.xmlUrl ?? XMLURL;
     const xml = await fetchText(
       xmlUrl,
       opts.waitForNewData ? 3 : 2,
@@ -2933,84 +2927,96 @@ if (!opts.background) {
 
     const sensors = parseXML(xml, stn.id);
 
-    if (sensors?.length > 0) {
-      const latestTs = getLatestSensorTimestamp(sensors);
-      const latestSignature = getLatestSensorSignature(sensors);
-      const refreshState = getStationRefreshState(stn.id);
-      const hasPayloadChanges = latestSignature !== stationLastSignature[stn.id];
-      const hasReachedTargetTimestamp = !opts.minTimestamp || isTimestampAtLeast(latestTs, opts.minTimestamp);
-      const hasNewData = opts.waitForNewData ? hasReachedTargetTimestamp : true;
-
-      if (refreshState?.waiting && isTimestampAtLeast(latestTs, refreshState.baselineTimestamp)) {
-        setStationRefreshState(stn.id, { waiting: false, baselineTimestamp: null });
-        if (currentStnRef?.id === stn.id) refreshVisibleStationTimerState();
-      }
-
-      if (hasNewData) {
-        currentSensors = sensors;
-        stationLastTimestamp[stn.id] = latestTs;
-        stationLastSignature[stn.id] = latestSignature;
-        if (!opts.background || currentStnRef?.id === stn.id) renderTabs(stn, sensors);
-      } else if (!opts.waitForNewData && hasPayloadChanges) {
-        stationLastSignature[stn.id] = latestSignature;
-      }
-
-      ensureStationBoundaryWaiting(stn.id, latestTs);
-      if (silent && !opts.waitForNewData) scheduleStaleRetry(stn, sensors);
-      return { ok: true, hasNewData, latestTs };
+    // parseXML restituisce null solo se la stazione non esiste nel file
+    if (sensors === null) {
+      if (!silent) showError(`Stazione #${stn.id} non trovata nel file XML`);
+      return { ok: false, hasNewData: false };
     }
-  } catch (_) {}
 
-  try {
-    const csvUrl = `${CSV_BASE}${String(stn.id).padStart(4, '0')}`;
-    const csv = await fetchText(
-      csvUrl,
-      opts.waitForNewData ? 3 : 2,
-      opts.waitForNewData ? 1600 : 500,
-      { bypassCache: opts.waitForNewData }
-    );
-
-    const rows = parseCSV(csv);
-
-    if (rows?.length > 0) {
-      const fallbackSensors = [{
-        type: 'LIVIDRO',
-        paramnm: 'Livello idrometrico',
-        unitnm: 'm',
-        rows
-      }];
-
-      const latestTs = getLatestSensorTimestamp(fallbackSensors);
-      const latestSignature = getLatestSensorSignature(fallbackSensors);
-      const refreshState = getStationRefreshState(stn.id);
-      const hasPayloadChanges = latestSignature !== stationLastSignature[stn.id];
-      const hasReachedTargetTimestamp = !opts.minTimestamp || isTimestampAtLeast(latestTs, opts.minTimestamp);
-      const hasNewData = opts.waitForNewData ? hasReachedTargetTimestamp : true;
-
-      if (refreshState?.waiting && isTimestampAtLeast(latestTs, refreshState.baselineTimestamp)) {
-        setStationRefreshState(stn.id, { waiting: false, baselineTimestamp: null });
-        if (currentStnRef?.id === stn.id) refreshVisibleStationTimerState();
-      }
-
-      if (hasNewData) {
-        currentSensors = fallbackSensors;
-        stationLastTimestamp[stn.id] = latestTs;
-        stationLastSignature[stn.id] = latestSignature;
-        if (!opts.background || currentStnRef?.id === stn.id) renderTabs(stn, currentSensors);
-      } else if (!opts.waitForNewData && hasPayloadChanges) {
-        stationLastSignature[stn.id] = latestSignature;
-      }
-
-      ensureStationBoundaryWaiting(stn.id, latestTs);
-      return { ok: true, hasNewData, latestTs };
+    // Restituisce array vuoto se la stazione esiste ma non ha dati
+    if (sensors.length === 0) {
+      if (!silent) showError(`Nessun dato disponibile per la stazione #${stn.id}`);
+      return { ok: false, hasNewData: false };
     }
+
+    // Ha dati validi — procedi senza fallback CSV
+    const latestTs = getLatestSensorTimestamp(sensors);
+    const latestSignature = getLatestSensorSignature(sensors);
+    const refreshState = getStationRefreshState(stn.id);
+
+    const hasPayloadChanges = latestSignature !== stationLastSignature[stn.id];
+    const hasReachedTargetTimestamp = !opts.minTimestamp || isTimestampAtLeast(latestTs, opts.minTimestamp);
+    const hasNewData = opts.waitForNewData ? hasReachedTargetTimestamp : true;
+
+    if (refreshState?.waiting && isTimestampAtLeast(latestTs, refreshState.baselineTimestamp)) {
+      setStationRefreshState(stn.id, { waiting: false, baselineTimestamp: null });
+      if (currentStnRef?.id === stn.id) refreshVisibleStationTimerState();
+    }
+
+    if (hasNewData) {
+      currentSensors = sensors;
+      stationLastTimestamp[stn.id] = latestTs;
+      stationLastSignature[stn.id] = latestSignature;
+      if (!opts.background && currentStnRef?.id === stn.id) {
+        renderTabs(stn, sensors);
+      }
+    } else if (!opts.waitForNewData && hasPayloadChanges) {
+      stationLastSignature[stn.id] = latestSignature;
+      ensureStationBoundaryWaiting(stn.id, latestTs);
+    }
+
+    if (silent && !opts.waitForNewData) scheduleStaleRetry(stn, sensors);
+
+    return { ok: true, hasNewData, latestTs };
+
   } catch (e) {
-    if (!silent) showError(e.message);
+    // Fallback CSV — solo se la stazione ha un tipo idrometrico (no stazioni meteo)
+    const isMeteo = (stn.subtitle || '').toLowerCase().includes('meteor') || stn.xmlOnly;
+    if (!isMeteo) {
+      try {
+        const csvUrl = CSVBASE + String(stn.id).padStart(4, '0');
+        const csv = await fetchText(
+          csvUrl,
+          opts.waitForNewData ? 3 : 2,
+          opts.waitForNewData ? 1600 : 500,
+          { bypassCache: opts.waitForNewData }
+        );
+        const rows = parseCSV(csv);
+        if (rows?.length > 0) {
+          const fallbackSensors = [{ type: 'LIVIDRO', paramnm: 'Livello idrometrico', unitnm: 'm', rows }];
+          const latestTs = getLatestSensorTimestamp(fallbackSensors);
+          const latestSignature = getLatestSensorSignature(fallbackSensors);
+          const refreshState = getStationRefreshState(stn.id);
+
+          const hasPayloadChanges = latestSignature !== stationLastSignature[stn.id];
+          const hasReachedTargetTimestamp = !opts.minTimestamp || isTimestampAtLeast(latestTs, opts.minTimestamp);
+          const hasNewData = opts.waitForNewData ? hasReachedTargetTimestamp : true;
+
+          if (refreshState?.waiting && isTimestampAtLeast(latestTs, refreshState.baselineTimestamp)) {
+            setStationRefreshState(stn.id, { waiting: false, baselineTimestamp: null });
+            if (currentStnRef?.id === stn.id) refreshVisibleStationTimerState();
+          }
+
+          if (hasNewData) {
+            currentSensors = fallbackSensors;
+            stationLastTimestamp[stn.id] = latestTs;
+            stationLastSignature[stn.id] = latestSignature;
+            if (!opts.background && currentStnRef?.id === stn.id) {
+              renderTabs(stn, currentSensors);
+            }
+          } else if (!opts.waitForNewData && hasPayloadChanges) {
+            stationLastSignature[stn.id] = latestSignature;
+            ensureStationBoundaryWaiting(stn.id, latestTs);
+          }
+
+          return { ok: true, hasNewData, latestTs };
+        }
+      } catch (_) { /* CSV fallback fallito */ }
+    }
+
+    if (!silent) showError(e.message || `Nessun dato disponibile per la stazione ${stn.id}`);
     return { ok: false, hasNewData: false };
   }
-
-  if (!silent) showError('Nessun dato disponibile per la stazione #' + stn.id);
-  return { ok: false, hasNewData: false };
 }
 
 
