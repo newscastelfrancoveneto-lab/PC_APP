@@ -2663,7 +2663,7 @@ function decodeXml(buf) {
   // Decodifica con l'encoding corretto (es. iso-8859-1)
   let text = new TextDecoder(enc, { fatal: false }).decode(buf);
   // Sostituisce la dichiarazione encoding in modo che DOMParser non re-decodifichi
-  text = text.replace(/(encoding=["'])[^"']*(["'])/i, '$1UTF-8$2');
+  text = text.replace(/(encoding=["'])[^"']+(["'])/i, '$1UTF-8$2');
   return text;
 }
 
