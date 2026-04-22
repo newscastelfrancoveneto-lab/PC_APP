@@ -2889,15 +2889,19 @@ async function loadStation(stn, options = false) {
   const opts = typeof options === 'boolean' ? { silent: options } : (options || {});
   const silent = !!opts.silent;
 
-  if (!opts.background) {
-    currentId = stn.id;
-    currentStnRef = stn;
-	currentTabIndex = 0;
-    setActiveMarker(stn.id);
-    document.getElementById('panel-title').textContent = stn.name;
-    document.getElementById('panel-subtitle').textContent = `${stn.subtitle} — Staz. ${stn.id}`;
-    showBadge(true);
-  }
+if (!opts.background) {
+  currentId = stn.id;
+  currentStnRef = stn;
+  currentTabIndex = 0;
+  setActiveMarker(stn.id);
+  document.getElementById('panel-title').textContent = stn.name;
+  document.getElementById('panel-subtitle').textContent = stn.subtitle || `Staz. ${stn.id}`;
+  showBadge(true);
+  if (!silent) document.getElementById('sensor-tabs').style.display = 'none';
+  document.getElementById('panel-body').innerHTML =
+    `<div class="loading"><div class="spinner"></div>Recupero dati ARPAV...</div>`;
+  if (activeChart) activeChart.destroy(), activeChart = null;
+}
 
   if (!silent) {
     document.getElementById('sensor-tabs').style.display = 'none';
@@ -3215,28 +3219,46 @@ function renderTabs(stn, sensors) {
     return pri(a) - pri(b);
   });
 
-  currentSensors = sensors;
+  currentSensors = sensors || [];
 
   const tabsEl = document.getElementById('sensor-tabs');
-  tabsEl.style.display = sensors.length > 1 ? 'flex' : 'none';
-  tabsEl.innerHTML = sensors.length > 1
-    ? sensors.map((s, i) => `
-        <button class="s-tab ${i === currentTabIndex ? 'active' : ''}"
-                onclick="switchTab(${i})">
-          ${TABLABELS[s.type] || s.paramnm}
-        </button>
-      `).join('')
-    : '';
+  tabsEl.style.display = currentSensors.length > 1 ? 'flex' : 'none';
 
-  const safeIndex = Math.min(currentTabIndex, Math.max(0, sensors.length - 1));
-  switchTab(safeIndex);
+  if (currentSensors.length > 1) {
+    const safeIndex = Math.min(Math.max(currentTabIndex, 0), currentSensors.length - 1);
+
+    tabsEl.innerHTML = currentSensors.map((s, i) => `
+      <button class="s-tab ${i === safeIndex ? 'active' : ''}" onclick="switchTab(${i})">
+        ${TABLABELS[s.type] || s.paramnm}
+      </button>
+    `).join('');
+
+    switchTab(safeIndex);
+    return;
+  }
+
+  tabsEl.innerHTML = '';
+  currentTabIndex = 0;
+
+  if (currentSensors.length === 1) {
+    renderSensor(stn, currentSensors[0]);
+    return;
+  }
+
+  showError('Nessun sensore disponibile');
 }
 
 function switchTab(idx) {
-  currentTabIndex = idx;
+  if (!Array.isArray(currentSensors) || !currentSensors.length) return;
+
+  const safeIndex = Math.min(Math.max(idx, 0), currentSensors.length - 1);
+  const sensor = currentSensors[safeIndex];
+  if (!sensor) return;
+
+  currentTabIndex = safeIndex;
 
   document.querySelectorAll('.s-tab').forEach((t, i) => {
-    t.classList.toggle('active', i === idx);
+    t.classList.toggle('active', i === safeIndex);
   });
 
   if (activeChart) {
@@ -3244,7 +3266,7 @@ function switchTab(idx) {
     activeChart = null;
   }
 
-  renderSensor(currentStnRef, currentSensors[idx]);
+  renderSensor(currentStnRef, sensor);
 }
 
 function isSpecialPrecipitationChart(stn, sensor) {
