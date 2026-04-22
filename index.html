@@ -2343,35 +2343,40 @@ function readLocalClosureAlerts() {
 }
 
 async function loadClosureAlerts() {
-    const STORAGE_KEY = 'closurealertsgeojsonv1'; // inline, nessuna dipendenza
+  try {
+    const response = await apiFetch('/api/closures', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-    // Mostra dati locali mentre aspetta il server
-    try {
-        const local = JSON.parse(localStorage.getItem(STORAGE_KEY));
-        if (local) renderClosureAlerts(local);
-    } catch (_) {}
+    const serverData = await response.json();
 
-    // Carica dal server
-    try {
-        const response = await apiFetch('/api/closures', {
-            headers: { 'Accept': 'application/json' },
-            cache: 'no-store'
-        });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
-
-        // Normalizza: il server ritorna array [], noi vogliamo FeatureCollection
-        const fc = Array.isArray(data)
-            ? { type: 'FeatureCollection', features: data }
-            : (data?.type === 'FeatureCollection' ? data : null);
-
-        if (!fc) return;
-
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(fc));
-        renderClosureAlerts(fc);
-    } catch (err) {
-        console.info('Endpoint api/closures non disponibile, uso dati locali.', err);
+    if (serverData && Array.isArray(serverData.features)) {
+      localStorage.setItem(CLOSURE_ALERT_STORAGE_KEY, JSON.stringify(serverData));
+      renderClosureAlerts(serverData);
+      return;
     }
+
+    throw new Error('GeoJSON non valido');
+  } catch (err) {
+    console.warn('API chiusure non raggiungibile, uso cache locale:', err);
+
+    try {
+      const cachedRaw = localStorage.getItem(CLOSURE_ALERT_STORAGE_KEY);
+      if (!cachedRaw) {
+        renderClosureAlerts({ type: 'FeatureCollection', features: [] });
+        return;
+      }
+
+      const cachedData = JSON.parse(cachedRaw);
+      if (cachedData && Array.isArray(cachedData.features)) {
+        renderClosureAlerts(cachedData);
+        return;
+      }
+    } catch (cacheErr) {
+      console.warn('Cache chiusure non valida:', cacheErr);
+    }
+
+    renderClosureAlerts({ type: 'FeatureCollection', features: [] });
+  }
 }
 
 function toggleClosureAlerts(visible) {
