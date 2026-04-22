@@ -1464,6 +1464,7 @@ const CV_BBOX = { s: 45.6230, w: 11.8730, n: 45.7020, e: 12.0020 };
 
 let activeChart = null, currentId = null, currentSensors = [];
 let currentStnRef = null, nextRefresh = null;
+let currentTabIndex = 0;
 let timerRunning = false;
 let waitingForFreshData = false;
 let globalRefreshInProgress = false;
@@ -2891,6 +2892,7 @@ async function loadStation(stn, options = false) {
   if (!opts.background) {
     currentId = stn.id;
     currentStnRef = stn;
+	currentTabIndex = 0;
     setActiveMarker(stn.id);
     document.getElementById('panel-title').textContent = stn.name;
     document.getElementById('panel-subtitle').textContent = `${stn.subtitle} — Staz. ${stn.id}`;
@@ -3205,25 +3207,43 @@ function renderWindCombined(stn, sensor) {
 
 function renderTabs(stn, sensors) {
   sensors = mergeWindSensors(sensors);
-  // Riordina: Precipitazioni → Vento → resto
+
   sensors.sort((a, b) => {
-    const pri = s => s.paramnm?.toLowerCase().includes('precipit') ? 0
-                   : s.isWindCombined                              ? 1
-                   : 2;
+    const pri = s =>
+      s.paramnm?.toLowerCase().includes('precipit') ? 0 :
+      s.isWindCombined ? 1 : 2;
     return pri(a) - pri(b);
   });
+
   currentSensors = sensors;
+
   const tabsEl = document.getElementById('sensor-tabs');
   tabsEl.style.display = sensors.length > 1 ? 'flex' : 'none';
   tabsEl.innerHTML = sensors.length > 1
-    ? sensors.map((s, i) => `<button class="s-tab${i === 0 ? ' active' : ''}" onclick="switchTab(${i})">${TAB_LABELS[s.type] || s.paramnm}</button>`).join('')
+    ? sensors.map((s, i) => `
+        <button class="s-tab ${i === currentTabIndex ? 'active' : ''}"
+                onclick="switchTab(${i})">
+          ${TABLABELS[s.type] || s.paramnm}
+        </button>
+      `).join('')
     : '';
-  switchTab(0);
+
+  const safeIndex = Math.min(currentTabIndex, Math.max(0, sensors.length - 1));
+  switchTab(safeIndex);
 }
 
 function switchTab(idx) {
-  document.querySelectorAll('.s-tab').forEach((t, i) => t.classList.toggle('active', i === idx));
-  if (activeChart) { activeChart.destroy(); activeChart = null; }
+  currentTabIndex = idx;
+
+  document.querySelectorAll('.s-tab').forEach((t, i) => {
+    t.classList.toggle('active', i === idx);
+  });
+
+  if (activeChart) {
+    activeChart.destroy();
+    activeChart = null;
+  }
+
   renderSensor(currentStnRef, currentSensors[idx]);
 }
 
