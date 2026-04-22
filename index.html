@@ -3022,7 +3022,10 @@ function parseXML(xmlText, stationId) {
   } else {
     for (const s of doc.querySelectorAll('STAZIONE')) {
       const el = s.querySelector('IDSTAZ') || s.querySelector('CODSTAZ');
-      if (parseInt(el?.textContent?.trim(), 10) === stationId)
+      if (parseInt(el?.textContent?.trim(), 10) === stationId) {
+        staz = s;   // ← QUESTO MANCAVA
+        break;
+      }
     }
     if (!staz) { const all = doc.querySelectorAll('STAZIONE'); if (all.length === 1) staz = all[0]; }
   }
@@ -3037,13 +3040,12 @@ function parseXML(xmlText, stationId) {
     const g3 = parseFloat(sensore.querySelector('GUARDIA3')?.textContent);
     const rows = [];
     for (const dati of sensore.querySelectorAll('DATI')) {
-	  const ist = dati.getAttribute('ISTANTE') || '';
-	  const vmRaw = dati.querySelector('VM')?.textContent?.trim();
-	  const vm = parseFloat(vmRaw);
-	  const hasVal = !(!vmRaw || vmRaw === '--' || vmRaw === '' || isNaN(vm));
-	  if (ist) rows.push({ dt: ist, label: fmtIstante(ist), val: hasVal ? vm : null });
-	}
-
+      const ist = dati.getAttribute('ISTANTE') || '';
+      const vmRaw = dati.querySelector('VM')?.textContent?.trim();
+      const vm = parseFloat(vmRaw);
+      const hasVal = !(!vmRaw || vmRaw === '--' || vmRaw === '' || isNaN(vm));
+      if (ist) rows.push({ dt: ist, label: fmtIstante(ist), val: hasVal ? vm : null });
+    }
     rows.sort((a, b) => a.dt > b.dt ? -1 : a.dt < b.dt ? 1 : 0);
     if (rows.length > 0) sensors.push({ type, paramnm, unitnm, rows, soglie: !isNaN(g1) ? { s1: g1, s2: g2, s3: g3 } : null });
   }
