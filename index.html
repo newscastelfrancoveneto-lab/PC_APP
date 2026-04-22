@@ -2905,9 +2905,10 @@ async function loadStation(stn, options = false) {
   const silent = !!opts.silent;
 
   if (!opts.background) {
+    const isSameStation = currentStnRef?.id === stn.id;
     currentId = stn.id;
     currentStnRef = stn;
-    currentTabIndex = 0;
+    if (!isSameStation) currentTabIndex = 0;
     setActiveMarker(stn.id);
     document.getElementById('panel-title').textContent = stn.name;
     document.getElementById('panel-subtitle').textContent = stn.subtitle || `Staz. ${stn.id}`;
