@@ -4838,6 +4838,23 @@ async function fetchWeatherXml(force = false) {
   const cached = xmlCache[cacheKey];
   if (!force && cached && (Date.now() - cached.ts) < ARPAV_CACHE_MAX_AGE_MS) return cached.data;
 
+  // Il sito ARPAV non manda header CORS su questo file: il fetch diretto dal
+  // browser fallisce sempre (non solo a volte), quindi il nostro server
+  // (che fa da proxy con CORS suoi) è il tentativo primario, non un
+  // fallback — affidarsi ai soli proxy CORS pubblici di terzi ha smesso di
+  // funzionare in modo affidabile (segnalato: "le previsioni non caricano
+  // più", 2026-09-08), essendo servizi gratuiti che si rompono o iniziano a
+  // rate-limitare senza preavviso. Restano come fallback, insieme al fetch
+  // diretto, per resilienza se anche il nostro server fosse irraggiungibile.
+  try {
+    const r = await fetch(`${API_BASE}/api/arpav/bollettino-utenti?t=${Date.now()}`, { signal: AbortSignal.timeout(9000) });
+    if (r.ok) {
+      const buf = await r.arrayBuffer();
+      const text = decodeXml(buf);
+      if (text) { setArpavCache(cacheKey, text); return text; }
+    }
+  } catch (_) {}
+
   const bust = `${WEATHER_XML_URL}?t=${Date.now()}`;
   try {
     const text = await fetchXmlSource(bust, 9000);
